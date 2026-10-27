@@ -148,7 +148,7 @@ window.GAME_DATA = {
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
     { id: 'shield',      icon: '🔮', name: '방패막',      lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
     { id: 'gold_hand',   icon: '🪙', name: '황금손',      lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
-    { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `1초마다 피해% -${v}` },
+    { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 피해% -${+(v * 5).toFixed(2)}` },
   ],
 
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.

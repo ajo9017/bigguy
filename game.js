@@ -728,6 +728,9 @@
   function ring(x, y, z, color, size) {
     particles.push({ type: 'ring', x, y, z, life: 0.3, max: 0.3, color, size });
   }
+  function cross(x, y, z, color, size) {
+    particles.push({ type: 'cross', x, y, z, vz: 60, life: 0.9, max: 0.9, color, size });
+  }
   function text(x, y, z, str, color, size) {
     particles.push({ type: 'text', x, y, z, vz: 70, life: 0.9, max: 0.9, str, color, size });
   }
@@ -738,7 +741,7 @@
       if (p.type === 'spark') {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
         const f = Math.exp(-5 * dt); p.vx *= f; p.vy *= f; p.vz *= f;
-      } else if (p.type === 'text') {
+      } else if (p.type === 'text' || p.type === 'cross') {
         p.z += p.vz * dt; p.vz *= Math.exp(-2 * dt);
       }
     }
@@ -804,16 +807,16 @@
 
     if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
 
+    // 재생: 5초마다 한 번, 1초당 회복량의 5배를 회복하고 초록 십자가가 뜬다
     const rg = ab('regen', 0);
-    if (rg && p.pct > 0) {
-      p.pct = Math.max(0, p.pct - rg * dt);
-      // 회복 이펙트: 초록 빛이 몸에서 올라온다
-      p.regenFx = (p.regenFx || 0) + dt;
-      if (p.regenFx >= 0.6) {
-        p.regenFx = 0;
-        burst(p.x, p.y, p.r * 0.5, '#7dff9a', 6, 90);
-        ring(p.x, p.y, p.r, '#7dff9a', p.r * 1.6);
-        text(p.x, p.y, p.r * 2.5, '+', '#7dff9a', 18);
+    if (rg) {
+      p.regenT = (p.regenT || 0) + dt;
+      if (p.regenT >= 5) {
+        p.regenT = 0;
+        if (p.pct > 0) {
+          p.pct = Math.max(0, p.pct - rg * 5);
+          cross(p.x, p.y, p.r * 2.2, '#3dff6a', p.r * 0.9);
+        }
       }
     }
 
@@ -1696,6 +1699,12 @@
         const rr = p.size * S * (1 + (1 - a) * 2.2);
         ctx.strokeStyle = p.color; ctx.lineWidth = 4 * a + 1;
         ctx.beginPath(); ctx.ellipse(x, y, rr, rr * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (p.type === 'cross') {
+        const k = p.size * S * (a > 0.85 ? 1 + (a - 0.85) * 2 : 1), t = k * 0.35;
+        ctx.fillStyle = p.color; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.rect(x - t, y - k, t * 2, k * 2); ctx.rect(x - k, y - t, k * 2, t * 2);
+        ctx.stroke(); ctx.fill();
       } else if (p.type === 'text') {
         const age = p.max - p.life;
         const pop = age < 0.12 ? 1 + (0.12 - age) * 5 : 1;
