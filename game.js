@@ -701,7 +701,17 @@
     }
 
     const rg = ab('regen', 0);
-    if (rg && p.pct > 0) p.pct = Math.max(0, p.pct - rg * dt);
+    if (rg && p.pct > 0) {
+      p.pct = Math.max(0, p.pct - rg * dt);
+      // 회복 이펙트: 초록 빛이 몸에서 올라온다
+      p.regenFx = (p.regenFx || 0) + dt;
+      if (p.regenFx >= 0.6) {
+        p.regenFx = 0;
+        burst(p.x, p.y, p.r * 0.5, '#7dff9a', 6, 90);
+        ring(p.x, p.y, p.r, '#7dff9a', p.r * 1.6);
+        text(p.x, p.y, p.r * 2.5, '+', '#7dff9a', 18);
+      }
+    }
 
     // 거대화: 일정 시간마다 몸집이 커졌다가 돌아온다
     if (lvl('giant')) {
