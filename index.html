@@ -119,6 +119,25 @@
   .nameRow label { font-size: 15px; font-weight: 700; opacity: .8; }
   #nameInput { width: 170px; padding: 10px 12px; border-radius: 10px; border: 2px solid #4b4f86; background: #12132a; color: #fff;
     font-size: 16px; font-family: inherit; text-align: center; user-select: text; -webkit-user-select: text; }
+  .goldLine { font-size: 18px; font-weight: 800; color: #ffd84a; }
+
+  /* 캐릭터 */
+  #chars { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); background: rgba(8, 8, 16, .85); }
+  .charBox { width: min(560px, 100%); background: #1d1f38; border-radius: 18px; padding: 16px; box-sizing: border-box; border: 2px solid #3d4175; text-align: left; }
+  .charHead { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+  .charHead .gold { color: #ffd84a; }
+  #charList { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+  .charCard { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 2px solid transparent; }
+  .charCard.sel { border-color: #ffd84a; }
+  .charCard.locked .charPrev { filter: brightness(.55) saturate(.6); }
+  .charPrev { width: 70px; height: 86px; flex: none; }
+  .charInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .charName { font-size: 16px; font-weight: 900; }
+  .charDesc { font-size: 12px; opacity: .8; line-height: 1.35; word-break: keep-all; }
+  .charSkill { font-size: 12px; color: #8fd3ff; font-weight: 700; word-break: keep-all; }
+  .charAtk { font-size: 12px; color: #ffb347; font-weight: 700; }
+  .charBtn { flex: none; min-width: 78px; padding: 10px 8px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 800; cursor: pointer; background: #ffd84a; color: #2a1a0a; }
+  .charBtn:disabled { background: rgba(255, 255, 255, .15); color: #ccc; cursor: default; }
   .rankLine { font-size: 18px; font-weight: 800; color: #8fd3ff; margin-top: 6px; }
 </style>
 </head>
@@ -142,6 +161,7 @@
   <div class="row">
     <button class="big" id="btnStart">시작</button>
     <button class="ghost" id="btnRec">🏆 랭킹</button>
+    <button class="ghost" id="btnChars">👤 캐릭터 <span id="goldTitle"></span></button>
   </div>
 </div>
 
@@ -151,6 +171,16 @@
   <div class="row">
     <button class="big" id="btnRetry">다시 하기</button>
     <button class="ghost" id="btnRec2">🏆 랭킹</button>
+    <button class="ghost" id="btnChars2">👤 캐릭터</button>
+  </div>
+</div>
+
+<div id="chars" class="overlay hidden">
+  <div class="charBox">
+    <div class="charHead"><span>👤 캐릭터 (<span id="charNow"></span>)</span><span class="gold" id="goldNow"></span></div>
+    <div class="chatNote">게임이 끝나면 점수와 웨이브에 따라 골드를 얻어요. 캐릭터마다 시작 능력과 공격 방식이 달라요.</div>
+    <div id="charList"></div>
+    <button class="ghost" id="charClose">닫기</button>
   </div>
 </div>
 

@@ -15,6 +15,7 @@
 - 능력은 웨이브 클리어 때 3개 중 하나를 고르고, 같은 능력은 최대 Lv3까지 오른다
 - 개인 기록(최고 점수, 플레이 횟수, 최근 30판)과 이름은 브라우저 localStorage(`bigguy.records`, `bigguy.name`)에 저장된다. 기기마다 따로 저장된다
 - 전체 랭킹은 Supabase `scores` 표(name, score, wave, kills, created_at)에 저장된다. 접속 정보는 `data.js`의 `ranking`. publishable 키는 공개용이고, RLS로 읽기와 추가만 허용한다(수정, 삭제 불가). 다른 사람의 이름을 화면에 넣을 때는 반드시 textContent를 쓴다. secret 키는 절대 코드에 넣지 않는다
+- 게임이 끝나면 골드를 얻고(`data.js`의 `gold`), 골드로 캐릭터 10종(`data.js`의 `characters`)을 산다. 캐릭터마다 시작 능력 1개, 공격 수치 덮어쓰기(`attack`), 외형(`look`)이 있다. 골드/보유/선택은 localStorage(`bigguy.gold`, `bigguy.chars`, `bigguy.char`)에 저장된다. 새 캐릭터는 `characters`에 추가한다
 - 주인공은 레퍼런스(머리띠, 흰 핫피, 근육질 아저씨)를 바탕으로 캔버스 도형으로 그린다(`drawPlayer`). 나중에 스프라이트 이미지로 교체할 수 있다
 
 ## 개선 요청

@@ -9,7 +9,8 @@
   const ABIL = Object.fromEntries(D.abilities.map(a => [a.id, a]));
 
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
+  const mainCtx = ctx;
   const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
   const $ = id => document.getElementById(id);
@@ -17,6 +18,7 @@
     title: $('title'), over: $('over'), overStats: $('overStats'), touch: $('touch'), btnAtk: $('btnAtk'), help: $('help'),
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'),
+    chars: $('chars'), charList: $('charList'), goldNow: $('goldNow'), goldTitle: $('goldTitle'), charNow: $('charNow'),
     records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'),myName: $('myName'), nameInput: $('nameInput'),
   };
 
@@ -143,7 +145,7 @@
     keys.add(e.code);
     if (e.code === 'KeyJ' || e.code === 'KeyK' || e.code === 'Space') pressAttack();
     if (game.picking && /^Digit[1-3]$/.test(e.code)) choose(+e.code.slice(5) - 1);
-    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && ui.records.classList.contains('hidden')) startGame();
+    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && ui.records.classList.contains('hidden') && ui.chars.classList.contains('hidden')) startGame();
   });
   addEventListener('keyup', e => keys.delete(e.code));
   addEventListener('blur', releaseInput);
@@ -322,6 +324,16 @@
   }
   let records = loadRecords();
 
+  // ---------- 골드와 캐릭터 ----------
+  const CHARS = D.characters;
+  const charById = id => CHARS.find(c => c.id === id) || CHARS[0];
+  let gold = Math.max(0, Math.floor(+storage.get('bigguy.gold', 0)) || 0);
+  let owned = new Set([CHARS[0].id, ...[].concat(storage.get('bigguy.chars', [])).filter(id => CHARS.some(c => c.id === id))]);
+  let selChar = owned.has(storage.get('bigguy.char', '')) ? storage.get('bigguy.char', '') : CHARS[0].id;
+  const saveChars = () => {
+    storage.set('bigguy.gold', gold); storage.set('bigguy.chars', [...owned]); storage.set('bigguy.char', selChar);
+  };
+
   const fmtTime = s => `${Math.floor(s / 60)}분 ${Math.floor(s % 60)}초`;
   const fmtDate = t => {
     if (!t) return '-';
@@ -457,6 +469,85 @@
     ui.recBody.innerHTML = html;
   }
 
+  // ---------- 캐릭터 선택 화면 ----------
+  function updateGoldUi() {
+    ui.goldTitle.textContent = `🪙 ${gold}`;
+    ui.goldNow.textContent = `🪙 ${gold}`;
+    ui.charNow.textContent = charById(selChar).name;
+  }
+
+  // 미리보기는 별도 캔버스에 같은 그리기 함수(drawPlayer)로 그린다
+  function drawPreview(cv, ch) {
+    const dpr = 2, w = 90, h = 110;
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(w / 2, h * 0.58);
+    drawPlayer({ ch, face: Math.PI / 2, pct: 0, walk: 0, atk: null, falling: false, hurt: 0, flash: 0, combo: 0 }, 27);
+    ctx = mainCtx;
+  }
+
+  function skillText(ch) {
+    const a = ch.skill && ABIL[ch.skill];
+    return a ? `${a.icon} ${a.name}: ${a.desc(a.lv[0])}` : '시작 능력 없음';
+  }
+
+  function attackText(ch) {
+    if (!ch.attack) return '';
+    const b = D.player.attack, a = ch.attack, t = [];
+    if (a.range && a.range !== b.range) t.push(a.range > b.range ? '사거리 길다' : '사거리 짧다');
+    if (a.duration && a.duration !== b.duration) t.push(a.duration < b.duration ? '공격 빠름' : '공격 느림');
+    if (a.knockback && a.knockback > b.knockback) t.push('넉백 강함');
+    if (a.knockback && a.knockback < b.knockback) t.push('넉백 약함');
+    if (a.arc && a.arc !== b.arc) t.push(a.arc > b.arc ? '범위 넓음' : '범위 좁음');
+    if (a.lunge && a.lunge > b.lunge) t.push('돌진 큼');
+    return t.join(' · ');
+  }
+
+  function openChars() {
+    ui.chars.classList.remove('hidden');
+    ui.btnChat.classList.add('hidden');
+    renderChars();
+  }
+
+  function renderChars() {
+    updateGoldUi();
+    ui.charList.innerHTML = '';
+    for (const ch of CHARS) {
+      const has = owned.has(ch.id), sel = ch.id === selChar;
+      const card = document.createElement('div');
+      card.className = 'charCard' + (sel ? ' sel' : '') + (has ? '' : ' locked');
+      const cv = document.createElement('canvas');
+      cv.className = 'charPrev';
+      const info = document.createElement('div');
+      info.className = 'charInfo';
+      const nm = document.createElement('div'); nm.className = 'charName'; nm.textContent = ch.name;
+      const ds = document.createElement('div'); ds.className = 'charDesc'; ds.textContent = ch.desc;
+      const sk = document.createElement('div'); sk.className = 'charSkill'; sk.textContent = skillText(ch);
+      const at = document.createElement('div'); at.className = 'charAtk'; at.textContent = attackText(ch);
+      const btn = document.createElement('button');
+      btn.className = 'charBtn';
+      if (sel) { btn.textContent = '선택됨'; btn.disabled = true; }
+      else if (has) { btn.textContent = '선택'; btn.addEventListener('click', () => { selChar = ch.id; saveChars(); renderChars(); }); }
+      else {
+        btn.textContent = `🪙 ${ch.price} 구매`;
+        btn.disabled = gold < ch.price;
+        btn.addEventListener('click', () => {
+          if (gold < ch.price || owned.has(ch.id)) return;
+          gold -= ch.price; owned.add(ch.id); selChar = ch.id; saveChars(); Sfx.play('pick'); renderChars();
+        });
+      }
+      info.append(nm, ds, sk);
+      if (at.textContent) info.appendChild(at);
+      card.append(cv, info, btn);
+      ui.charList.appendChild(card);
+      drawPreview(cv, ch);
+    }
+  }
+  for (const id of ['btnChars', 'btnChars2']) $(id).addEventListener('click', () => { Sfx.unlock(); openChars(); });
+  $('charClose').addEventListener('click', () => { ui.chars.classList.add('hidden'); ui.btnChat.classList.remove('hidden'); });
+  updateGoldUi();
+
   // ---------- 게임 흐름 ----------
   function makeEntity(kind, def, x, y) {
     return {
@@ -468,7 +559,13 @@
 
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1 });
+    const ch = charById(selChar);
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, ch,
+      attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
+    if (ch.skill && ABIL[ch.skill]) {
+      player.abil[ch.skill] = 1;
+      if (ch.skill === 'second_wind') player.saves++;
+    }
     enemies = []; particles = []; items = [];
     Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
@@ -478,7 +575,7 @@
     saveName();
     resetGame();
     game.state = 'play';
-    for (const el of [ui.title, ui.over, ui.pick, ui.records]) el.classList.add('hidden');
+    for (const el of [ui.title, ui.over, ui.pick, ui.records, ui.chars]) el.classList.add('hidden');
     ui.touch.classList.toggle('hidden', !isTouch);
     startWave(0);
   }
@@ -499,10 +596,15 @@
     r.history.unshift(entry);
     r.history = r.history.slice(0, 30);
     storage.set('bigguy.records', r);
+    const earned = Math.round((entry.score / D.gold.perScore + entry.wave * D.gold.perWave) * ab('gold_hand', 1));
+    gold += earned;
+    saveChars();
+    updateGoldUi();
 
     ui.overStats.innerHTML = (isNew && entry.score > 0 ? '<div class="newrec">🏆 신기록!</div>' : '') +
       `점수 <b>${entry.score}</b> · WAVE ${entry.wave} · 처치 ${entry.kills} · ${fmtTime(entry.time)}<br>` +
-      `<span class="dim">최고 기록 ${r.best.score} · 총 ${r.plays}판 플레이</span>` +
+      `<span class="dim">최고 기록 ${r.best.score} · 총 ${r.plays}판 플레이</span><br>` +
+      `<span class="goldLine">🪙 +${earned} 골드 (보유 ${gold})</span>` +
       (entry.abil.length ? `<div class="abrow">${icons(entry.abil)}</div>` : '') +
       '<div class="rankLine" id="rankLine"></div>';
     const rankLine = $('rankLine');
@@ -668,7 +770,7 @@
   }
 
   function startAttack(p) {
-    const a = D.player.attack;
+    const a = p.attackDef;
     p.combo = (p.comboT > 0 ? p.combo : 0) + 1;
     if (p.combo > 3) p.combo = 1;
     p.comboT = a.comboWindow + a.duration;
@@ -700,6 +802,8 @@
       }
     }
 
+    if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
+
     const rg = ab('regen', 0);
     if (rg && p.pct > 0) {
       p.pct = Math.max(0, p.pct - rg * dt);
@@ -729,14 +833,14 @@
     }
     p.grow += ((p.giant > 0 ? ABIL.giant.scale : 1) - p.grow) * Math.min(1, dt * 6);
     p.r = D.player.radius * p.grow;
-    p.mass = D.player.mass * ab('heavy', 1) * p.grow;
+    p.mass = D.player.mass * (p.ch.mass || 1) * ab('heavy', 1) * p.grow;
 
     if (p.hitstun > 0) {
       p.hitstun -= dt;
     } else {
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
-      const speed = D.player.speed * ab('quick_feet', 1) * (p.atk ? 0.35 : 1);
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * (p.atk ? 0.35 : 1);
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
@@ -802,6 +906,13 @@
   function hitPlayer(e, nx, ny, A = e.def.attack) {
     const p = player;
     if (p.inv > 0 || p.falling) return;
+    if (lvl('shield') && p.shieldT >= ab('shield')) {
+      p.shieldT = 0; p.inv = 0.5;
+      burst(p.x, p.y, p.r, '#b8a0ff', 14, 320); ring(p.x, p.y, p.r, '#b8a0ff', p.r * 2.2);
+      text(p.x, p.y, p.r * 3, '막았다!', '#d6c8ff', 22);
+      Sfx.play('pick');
+      return;
+    }
     const dmg = A.damage * ab('tough', 1);
     p.pct += dmg;
     let power = A.force * (1 + p.pct / 80) / p.mass;
@@ -1201,14 +1312,25 @@
     const back = fyv < -0.55;
     const dir = fxv >= 0 ? 1 : -1;
     const look = back ? 0 : fxv * r * 0.14;
-    const skin = tint(e, '#c98a5c'), line = '#3b2213';
-    const coat = tint(e, '#f3f0e8'), trim = tint(e, '#2c3a78'), sock = tint(e, '#1e1e26');
+    const L = (e.ch && e.ch.look) || {};
+    const skin = tint(e, L.skin || '#c98a5c'), line = '#3b2213';
+    const coat = tint(e, L.coat || '#f3f0e8'), trim = tint(e, L.trim || '#2c3a78'), sock = tint(e, L.sock || '#1e1e26');
+    const band = tint(e, L.band || '#ffffff');
     const lw = Math.max(1.2, r * 0.06);
     ctx.lineJoin = 'round';
 
     if (e.pct >= 100 && !e.falling) {
       ctx.fillStyle = `rgba(255,60,40,${0.18 + 0.12 * Math.sin(time * 10)})`;
       ctx.beginPath(); ctx.ellipse(0, -r * 0.2, r * 1.4, r * 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    if (L.cape) {
+      ctx.fillStyle = tint(e, L.cape); ctx.strokeStyle = line; ctx.lineWidth = lw;
+      const wav = Math.sin(time * 6) * r * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.8, -r * 0.9); ctx.lineTo(r * 0.8, -r * 0.9);
+      ctx.lineTo(r * 1.15 + wav, r * 0.75); ctx.lineTo(-r * 1.15 - wav, r * 0.75); ctx.closePath();
+      ctx.fill(); ctx.stroke();
     }
 
     // 팔: 어깨 → 주먹
@@ -1234,7 +1356,7 @@
     }
     const drawArm = m => {
       limb(m.shx, m.shy, m.fx, m.fy, r * 0.34, skin, line, lw);
-      circle(m.fx, m.fy, r * 0.25, skin, line, lw);
+      circle(m.fx, m.fy, L.glove ? r * 0.3 : r * 0.25, L.glove ? tint(e, L.glove) : skin, line, lw);
     };
     for (const m of arms) if (m.behind) drawArm(m);
 
@@ -1249,7 +1371,7 @@
     }
 
     // 흰 반바지
-    ctx.fillStyle = tint(e, '#ffffff'); ctx.strokeStyle = line; ctx.lineWidth = lw;
+    ctx.fillStyle = tint(e, L.shorts || '#ffffff'); ctx.strokeStyle = line; ctx.lineWidth = lw;
     ctx.beginPath();
     ctx.moveTo(-r * 0.46, r * 0.06); ctx.lineTo(r * 0.46, r * 0.06);
     ctx.lineTo(r * 0.4, r * 0.4); ctx.lineTo(-r * 0.4, r * 0.4); ctx.closePath();
@@ -1292,7 +1414,7 @@
       ctx.fill(); ctx.stroke();
       circle(0, -r * 0.25, r * 0.26, 'rgba(0,0,0,0)', trim, Math.max(1.5, r * 0.07));
       ctx.fillStyle = trim; ctx.font = `900 ${r * 0.3}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('祭', 0, -r * 0.24);
+      ctx.fillText(L.mark || '祭', 0, -r * 0.24);
     } else {
       for (const k of [-1, 1]) {
         ctx.fillStyle = coat; ctx.strokeStyle = line; ctx.lineWidth = lw;
@@ -1325,13 +1447,15 @@
     headPath(); ctx.fillStyle = skin; ctx.fill();
     ctx.save();
     headPath(); ctx.clip();
-    ctx.fillStyle = '#17171c';
-    ctx.fillRect(hx - hw, hy - hh, hw * 2, back ? hh * 1.5 : hh * 0.55);
+    if (!L.bald) {
+      ctx.fillStyle = L.hair || '#17171c';
+      ctx.fillRect(hx - hw, hy - hh, hw * 2, back ? hh * 1.5 : hh * 0.55);
+    }
     if (!back) {
       ctx.fillStyle = 'rgba(40,25,20,0.28)';
       ctx.beginPath(); ctx.ellipse(hx + look * 0.3, hy + hh * 0.62, hw * 0.85, hh * 0.45, 0, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.fillStyle = tint(e, '#ffffff');
+    ctx.fillStyle = band;
     ctx.fillRect(hx - hw, hy - hh * 0.5, hw * 2, hh * 0.28);
     ctx.restore();
     headPath(); ctx.strokeStyle = line; ctx.lineWidth = lw; ctx.stroke();
@@ -1341,9 +1465,9 @@
     const flap = Math.sin(time * 14) * hh * 0.12;
     for (const t of [0, 1]) {
       const tx = kx - (back ? (t ? 1 : -1) * hw * 0.35 : dir * hw * (0.55 + t * 0.2));
-      limb(kx, ky, tx, ky + hh * (0.3 + t * 0.25) + flap * (t ? 1 : -1), r * 0.1, tint(e, '#ffffff'), line, lw * 0.7);
+      limb(kx, ky, tx, ky + hh * (0.3 + t * 0.25) + flap * (t ? 1 : -1), r * 0.1, band, line, lw * 0.7);
     }
-    circle(kx, ky, r * 0.08, tint(e, '#ffffff'), line, lw * 0.7);
+    circle(kx, ky, r * 0.08, band, line, lw * 0.7);
 
     // 얼굴
     if (!back) {
@@ -1387,6 +1511,50 @@
         ctx.beginPath();
         ctx.moveTo(ex - hw * 0.3, ey + hh * 0.38);
         ctx.quadraticCurveTo(ex, ey + hh * 0.66, ex + hw * 0.3, ey + hh * 0.38);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      if (L.beard) {
+        ctx.fillStyle = L.beard;
+        ctx.beginPath(); ctx.ellipse(ex, ey + hh * 0.66, hw * 0.62, hh * 0.3, 0, 0, Math.PI); ctx.fill();
+      }
+      if (L.mask) {
+        ctx.fillStyle = tint(e, L.mask);
+        ctx.beginPath(); ctx.ellipse(ex, ey + hh * 0.52, hw * 0.88, hh * 0.46, 0, 0, Math.PI); ctx.fill();
+      }
+      if (L.fangs && !hurt) {
+        ctx.fillStyle = '#ffffff';
+        for (const k of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(ex + k * hw * 0.2, ey + hh * 0.4); ctx.lineTo(ex + k * hw * 0.08, ey + hh * 0.4); ctx.lineTo(ex + k * hw * 0.14, ey + hh * 0.62);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+      if (L.shades) {
+        ctx.fillStyle = '#111';
+        for (const k of [-1, 1]) ctx.fillRect(ex + k * sp - hw * 0.26, ey - hh * 0.12, hw * 0.52, hh * 0.22);
+        ctx.fillRect(ex - sp, ey - hh * 0.06, sp * 2, hh * 0.05);
+      }
+    }
+
+    // 모자와 장식
+    ctx.lineWidth = lw; ctx.strokeStyle = line;
+    if (L.hat === 'toque') {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(hx, hy - hh * 1.12, hw * 0.95, hh * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillRect(hx - hw * 0.8, hy - hh * 1.0, hw * 1.6, hh * 0.5); ctx.strokeRect(hx - hw * 0.8, hy - hh * 1.0, hw * 1.6, hh * 0.5);
+    } else if (L.hat === 'pirate') {
+      ctx.fillStyle = '#1a1a22';
+      ctx.beginPath();
+      ctx.moveTo(hx - hw * 1.35, hy - hh * 0.5); ctx.quadraticCurveTo(hx, hy - hh * 2.1, hx + hw * 1.35, hy - hh * 0.5);
+      ctx.quadraticCurveTo(hx, hy - hh * 0.8, hx - hw * 1.35, hy - hh * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#f2f2f2'; ctx.font = `900 ${hh * 0.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('☠', hx, hy - hh * 0.95);
+    } else if (L.hat === 'topknot') {
+      circle(hx, hy - hh * 1.15, hw * 0.34, L.hair || '#17171c', line, lw);
+    } else if (L.hat === 'ears') {
+      ctx.fillStyle = skin;
+      for (const k of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(hx + k * hw * 0.85, hy - hh * 0.3); ctx.lineTo(hx + k * hw * 1.35, hy - hh * 0.9); ctx.lineTo(hx + k * hw * 0.5, hy - hh * 0.8);
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }

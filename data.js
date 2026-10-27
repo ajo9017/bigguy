@@ -146,7 +146,46 @@ window.GAME_DATA = {
     { id: 'stun',        icon: '💫', name: '기절 타격',   lv: [1.4, 1.8, 2.2],   desc: v => `맞은 적의 경직 시간 x${v}` },
     { id: 'chain',       icon: '🔗', name: '연쇄 유지',   lv: [1.6, 2.2, 3],     desc: v => `낙하 연쇄 점수 유지 시간 ${v}초` },
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
+    { id: 'shield',      icon: '🔮', name: '방패막',      lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
+    { id: 'gold_hand',   icon: '🪙', name: '황금손',      lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
     { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `1초마다 피해% -${v}` },
+  ],
+
+  // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
+  gold: { perScore: 25, perWave: 8 },
+
+  // 캐릭터 10종. price 0 = 처음부터 사용 가능. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
+  // attack = 기본 공격 수치를 덮어씀(player.attack 기준), mass/speed = 몸무게/이동속도 배율.
+  // look = 외형(skin 피부, coat 겉옷, trim 깃/띠, shorts 바지, sock 양말, hair 머리색, band 머리띠, glove 주먹 색, mark 등 글자)
+  //   + 장식: hat('toque' 요리사모, 'pirate' 해적모자, 'topknot' 상투, 'ears' 뾰족귀), mask(복면), beard(수염), fangs(송곳니), cape(망토), bald(민머리), shades(선글라스)
+  characters: [
+    { id: 'bigguy', name: '빅가이', price: 0, skill: null, desc: '축제를 사랑하는 근육질 아저씨. 균형 잡힌 기본 캐릭터.',
+      look: {} },
+    { id: 'ninja', name: '쾌속 닌자', price: 100, skill: 'quick_feet', speed: 1.05, desc: '그림자처럼 빠르다. 가볍게 치고 빠지는 연타 공격.',
+      attack: { range: 70, damage: 5, knockback: 360, duration: 0.19, active: [0.03, 0.1], comboWindow: 0.4, finisherMul: 2.3, lunge: 100 },
+      look: { skin: '#d9a273', coat: '#2b2d42', trim: '#d62839', shorts: '#1c1d2b', sock: '#d62839', band: '#d62839', mask: '#2b2d42', mark: '影' } },
+    { id: 'sumo', name: '스모 장사', price: 150, skill: 'heavy', mass: 1.25, speed: 0.9, desc: '산 같은 몸. 느리지만 한 방이 묵직하다.',
+      attack: { range: 72, arc: 130, damage: 8, knockback: 540, duration: 0.34, active: [0.1, 0.2], comboWindow: 0.5, finisherMul: 1.8, lunge: 40 },
+      look: { skin: '#e0b08a', coat: '#e8e0cc', trim: '#7a5230', shorts: '#2f6fb3', sock: '#e0b08a', hair: '#17171c', band: '#e8e0cc', hat: 'topknot', mark: '力' } },
+    { id: 'boxer', name: '복서', price: 150, skill: 'rapid', desc: '번개 같은 잽. 좁지만 아주 빠르게 때린다.',
+      attack: { range: 74, arc: 80, damage: 4, knockback: 330, duration: 0.15, active: [0.03, 0.09], comboWindow: 0.35, finisherMul: 2.8, lunge: 60 },
+      look: { skin: '#b9774c', coat: '#c1121f', trim: '#ffd84a', shorts: '#c1121f', sock: '#ffffff', band: '#ffd84a', glove: '#e63946', mark: '拳' } },
+    { id: 'general', name: '창술 장군', price: 200, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁다.',
+      attack: { range: 128, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30 },
+      look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
+    { id: 'dracula', name: '드라큘라', price: 250, skill: 'vampire', desc: '밤의 귀족. 때릴수록 피해%가 줄어든다.',
+      look: { skin: '#e9e4f0', coat: '#2a1a3d', trim: '#b5179e', shorts: '#1a1226', sock: '#1a1226', hair: '#0d0d12', band: '#b5179e', fangs: true, cape: '#8a0f2a', mark: '血' } },
+    { id: 'wrestler', name: '프로 레슬러', price: 300, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리는 강타자.',
+      attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.1, lunge: 150 },
+      look: { skin: '#d08a5a', coat: '#ffcf33', trim: '#1b1b8f', shorts: '#1b1b8f', sock: '#ffcf33', hair: '#6b3a1a', band: '#d62828', shades: true, glove: '#d62828', mark: '王' } },
+    { id: 'chef', name: '불꽃 요리사', price: 300, skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커진다.',
+      attack: { range: 82, arc: 90, damage: 5, knockback: 400, duration: 0.24, active: [0.05, 0.14], comboWindow: 0.45, finisherMul: 2.2, lunge: 70 },
+      look: { skin: '#e0a679', coat: '#ffffff', trim: '#d62828', shorts: '#3a3a4a', sock: '#ffffff', hair: '#5a3a1a', band: '#ffffff', hat: 'toque', mark: '肉' } },
+    { id: 'pirate', name: '해적 선장', price: 400, skill: 'bounty', desc: '보물에 눈이 먼 선장. 낙하 처치 점수가 높다.',
+      look: { skin: '#c68652', coat: '#7a1f2b', trim: '#e0b84a', shorts: '#2a2a3a', sock: '#5a3a1a', hair: '#1a1a22', band: '#1a1a22', hat: 'pirate', beard: '#1a1a22', mark: '財' } },
+    { id: 'monk', name: '떠돌이 승려', price: 500, skill: 'shield', desc: '고요한 마음의 결계. 주기적으로 첫 공격을 막아준다.',
+      attack: { range: 76, arc: 120, damage: 5, knockback: 380, duration: 0.22, active: [0.04, 0.13], comboWindow: 0.5, finisherMul: 2.2, lunge: 60 },
+      look: { skin: '#d9a273', coat: '#e8892b', trim: '#8a3d0f', shorts: '#8a3d0f', sock: '#e8892b', band: '#e8892b', bald: true, mark: '禪' } },
   ],
 
   // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브가 endlessScale 배율로 계속 늘어난다.
