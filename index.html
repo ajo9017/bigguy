@@ -76,6 +76,14 @@
     background: #12132a; color: #fff; font-size: 16px; font-family: inherit; resize: vertical; user-select: text; -webkit-user-select: text; }
   .chatNote { font-size: 12px; opacity: .6; line-height: 1.5; }
   #chatSend { align-self: stretch; }
+  #chatSend:disabled { opacity: .6; }
+  .chatMsg { font-size: 14px; font-weight: 700; min-height: 1em; }
+  .chatMsg.ok { color: #7dff9a; }
+  .chatMsg.err { color: #ff8a8a; }
+  .linkBtn { align-self: flex-start; background: none; border: 0; color: rgba(255, 255, 255, .5); font-size: 12px; padding: 2px 0; cursor: pointer; }
+  .ownerRow { display: flex; gap: 8px; }
+  #ownerCode { flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #4b4f86; background: #12132a; color: #fff; font-size: 16px; user-select: text; -webkit-user-select: text; }
+  .ownerRow .ghost { padding: 8px 16px; font-size: 15px; }
   .histTitle { font-size: 14px; font-weight: 800; opacity: .8; margin-top: 6px; }
   .histItem { font-size: 13px; opacity: .7; padding: 6px 10px; background: rgba(255, 255, 255, .05); border-radius: 8px; word-break: break-all; }
   .chatBox { max-height: calc(100dvh - 48px); overflow-y: auto; }
@@ -222,7 +230,12 @@
     </div>
     <textarea id="chatText" placeholder="예: 얼음을 던지는 적을 추가해줘"></textarea>
     <button class="big" id="chatSend">보내기</button>
-    <div class="chatNote">보내기를 누르면 내용이 채워진 GitHub 요청 페이지가 열려요. 거기서 <b>Create / Submit</b>을 누르면 접수됩니다. (GitHub 로그인 필요)</div>
+    <div class="chatMsg" id="chatMsg"></div>
+    <button class="linkBtn" id="ownerToggle"></button>
+    <div class="ownerRow hidden" id="ownerRow">
+      <input id="ownerCode" type="password" placeholder="주인 코드" autocomplete="off">
+      <button class="ghost" id="ownerSave">저장</button>
+    </div>
     <div id="chatHist"></div>
   </div>
 </div>

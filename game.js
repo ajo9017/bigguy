@@ -17,9 +17,10 @@
   const ui = {
     title: $('title'), over: $('over'), overStats: $('overStats'), touch: $('touch'), btnAtk: $('btnAtk'), help: $('help'),
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
-    chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'),
+    chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'), chatSend: $('chatSend'), chatMsg: $('chatMsg'),
+    ownerToggle: $('ownerToggle'), ownerRow: $('ownerRow'), ownerCode: $('ownerCode'),
     chars: $('chars'), charList: $('charList'), goldNow: $('goldNow'), goldTitle: $('goldTitle'), charNow: $('charNow'),
-    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'),myName: $('myName'), nameInput: $('nameInput'),
+    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'), myName: $('myName'), nameInput: $('nameInput'),
   };
 
   // ---------- 화면 ----------
@@ -231,7 +232,7 @@
   }
 
   // ---------- 개선 요청 채팅 ----------
-  // 서버 없이 GitHub 이슈 작성 페이지를 내용이 채워진 채로 연다
+  // Supabase Edge Function이 GitHub 이슈를 대신 만든다. 게임을 떠나지 않고 보낼 수 있다
   function openChat() {
     chatOpen = true;
     releaseInput();
@@ -287,26 +288,64 @@
         }
       });
   }
-  function sendRequest() {
+  function setChatMsg(text, ok) {
+    ui.chatMsg.textContent = text;
+    ui.chatMsg.className = 'chatMsg' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+  }
+  let sending = false;
+  async function sendRequest() {
     const text = ui.chatText.value.trim();
-    if (!text) { ui.chatText.focus(); return; }
-    const title = '[요청] ' + text.replace(/\s+/g, ' ').slice(0, 60);
+    if (text.length < 2) { ui.chatText.focus(); setChatMsg('요청 내용을 적어주세요', false); return; }
+    if (sending) return;
+    sending = true;
+    ui.chatSend.disabled = true;
+    setChatMsg('보내는 중...');
     const info = [
       `웨이브: ${game.state === 'title' ? '-' : game.wave + 1}`,
       `능력: ${abilSummary() || '없음'}`,
       `기기: ${isTouch ? '모바일' : 'PC'} ${W}x${H}`,
     ].join('\n');
-    const body = `${text}\n\n---\n${info}`;
-    window.open(`https://github.com/${D.feedback.repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&labels=request`, '_blank');
-    const list = storage.get('bigguy.requests', []);
-    list.unshift({ text, date: Date.now() });
-    storage.set('bigguy.requests', list.slice(0, 10));
-    ui.chatText.value = '';
-    renderChatHist();
+    try {
+      const res = await fetch(D.feedback.fn, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: D.ranking.key },
+        body: JSON.stringify({ text, name: playerName, info, code: storage.get('bigguy.ownerCode', '') }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || res.status);
+      const list = storage.get('bigguy.requests', []);
+      list.unshift({ text, date: Date.now(), number: out.number });
+      storage.set('bigguy.requests', list.slice(0, 10));
+      ui.chatText.value = '';
+      setChatMsg(out.owner ? `✅ 접수됐어요 (#${out.number}). 바로 자동 반영을 시작해요` : `✅ 접수됐어요 (#${out.number}). 주인이 확인한 뒤 반영돼요`, true);
+      renderChatHist();
+    } catch (e) {
+      setChatMsg(`보내지 못했어요: ${e.message}. 잠시 후 다시 시도해 주세요`, false);
+    } finally {
+      sending = false;
+      ui.chatSend.disabled = false;
+    }
   }
+  // 주인 코드: 이 기기에서 보낸 요청을 주인 요청으로 인정받기 위한 암호 (Edge Function의 OWNER_CODE와 같아야 함)
+  function syncOwnerUI() {
+    const has = !!storage.get('bigguy.ownerCode', '');
+    ui.ownerToggle.textContent = has ? '🔑 주인 코드 등록됨 (바꾸기)' : '🔑 주인이신가요?';
+  }
+  ui.ownerToggle.addEventListener('click', () => {
+    ui.ownerRow.classList.toggle('hidden');
+    if (!ui.ownerRow.classList.contains('hidden')) ui.ownerCode.focus();
+  });
+  $('ownerSave').addEventListener('click', () => {
+    storage.set('bigguy.ownerCode', ui.ownerCode.value.trim());
+    ui.ownerCode.value = '';
+    ui.ownerRow.classList.add('hidden');
+    syncOwnerUI();
+    setChatMsg(storage.get('bigguy.ownerCode', '') ? '주인 코드를 저장했어요. 맞는 코드면 요청이 바로 자동 반영돼요' : '주인 코드를 지웠어요', true);
+  });
+  syncOwnerUI();
   ui.btnChat.addEventListener('click', openChat);
   $('chatClose').addEventListener('click', closeChat);
-  $('chatSend').addEventListener('click', sendRequest);
+  ui.chatSend.addEventListener('click', sendRequest);
   ui.chat.addEventListener('click', e => { if (e.target === ui.chat) closeChat(); });
   for (const chip of document.querySelectorAll('#chat .chip')) {
     chip.addEventListener('click', () => {
