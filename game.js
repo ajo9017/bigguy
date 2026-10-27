@@ -17,7 +17,7 @@
     title: $('title'), over: $('over'), overStats: $('overStats'), touch: $('touch'), btnAtk: $('btnAtk'), help: $('help'),
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'),
-    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), nameInput: $('nameInput'),
+    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), myName: $('myName'), nameInput: $('nameInput'),
   };
 
   // ---------- 화면 ----------
@@ -171,6 +171,7 @@
   $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(); });
   for (const id of ['btnRec', 'btnRec2']) $(id).addEventListener('click', () => openRecords('rank'));
   for (const tab of document.querySelectorAll('#records .tab')) tab.addEventListener('click', () => openRecords(tab.dataset.tab));
+  for (const b of document.querySelectorAll('#rankTabs .sub')) b.addEventListener('click', () => { rankPeriod = b.dataset.period; loadRanking(); });
   $('recClose').addEventListener('click', () => ui.records.classList.add('hidden'));
   if (isTouch) ui.help.innerHTML = '왼쪽 화면 드래그로 이동 · 오른쪽 버튼으로 공격<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다';
 
@@ -374,19 +375,27 @@
     tr.appendChild(td);
   }
 
+  let rankPeriod = 'today';
+  const periodSince = p => {
+    if (p === 'all') return '';
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (p === 'week') d.setDate(d.getDate() - 6);
+    return `&created_at=gte.${encodeURIComponent(d.toISOString())}`;
+  };
+
   async function loadRanking() {
-    ui.rankBody.innerHTML = '<div class="chatNote">불러오는 중...</div>';
+    const period = rankPeriod;
+    for (const b of document.querySelectorAll('#rankTabs .sub')) b.classList.toggle('on', b.dataset.period === period);
+    ui.rankList.innerHTML = '<div class="chatNote">불러오는 중...</div>';
     try {
-      const res = await fetch(`${RANK.url}/rest/v1/scores?select=name,score,wave,kills&order=score.desc,created_at.asc&limit=${RANK.top}`, { headers: rankHeaders });
+      const res = await fetch(`${RANK.url}/rest/v1/scores?select=name,score,wave,kills&order=score.desc,created_at.asc&limit=${RANK.top}${periodSince(period)}`, { headers: rankHeaders });
       if (!res.ok) throw new Error(res.status);
       const rows = await res.json();
-      ui.rankBody.innerHTML = '';
-      const me = document.createElement('div');
-      me.className = 'myName';
-      me.textContent = `내 이름: ${playerName}`;
-      ui.rankBody.appendChild(me);
+      if (period !== rankPeriod) return;
+      ui.rankList.innerHTML = '';
       if (!rows.length) {
-        ui.rankBody.insertAdjacentHTML('beforeend', '<div class="histTitle">아직 랭킹 기록이 없어요. 첫 번째 주인공이 되어보세요!</div>');
+        ui.rankList.insertAdjacentHTML('beforeend', '<div class="histTitle">아직 이 기간의 랭킹 기록이 없어요. 첫 번째 주인공이 되어보세요!</div>');
         return;
       }
       const table = document.createElement('table');
@@ -395,7 +404,7 @@
       const medals = ['🥇', '🥈', '🥉'];
       rows.forEach((row, i) => {
         const tr = document.createElement('tr');
-        if (row.name === playerName) tr.className = 'best';
+        if (row.name === playerName) tr.className = 'me';
         cell(tr, medals[i] || String(i + 1));
         cell(tr, row.name, 'nm');
         cell(tr, String(row.score));
@@ -403,9 +412,9 @@
         cell(tr, String(row.kills));
         table.appendChild(tr);
       });
-      ui.rankBody.appendChild(table);
+      ui.rankList.appendChild(table);
     } catch (e) {
-      ui.rankBody.innerHTML = '<div class="histTitle">랭킹을 불러오지 못했어요. 인터넷 연결을 확인해 주세요</div>';
+      if (period === rankPeriod) ui.rankList.innerHTML = '<div class="histTitle">랭킹을 불러오지 못했어요. 인터넷 연결을 확인해 주세요</div>';
     }
   }
 
@@ -414,7 +423,7 @@
     ui.rankBody.classList.toggle('hidden', tab !== 'rank');
     ui.recBody.classList.toggle('hidden', tab !== 'mine');
     ui.records.classList.remove('hidden');
-    if (tab === 'rank') { loadRanking(); return; }
+    if (tab === 'rank') { ui.myName.textContent = `내 이름: ${playerName}`; loadRanking(); return; }
     const r = records;
     let html = `<div class="recGrid">
       <div><b>${r.best ? r.best.score : 0}</b><span>최고 점수</span></div>
@@ -424,8 +433,8 @@
       <div class="wide"><b>${fmtTime(r.totalTime)}</b><span>총 플레이 시간</span></div>
     </div>`;
     if (r.history.length) {
-      html += '<div class="histTitle">최근 플레이</div><table class="recTable"><tr><th>날짜</th><th>점수</th><th>웨이브</th><th>처치</th><th>능력</th></tr>';
-      for (const h of r.history) {
+      html += '<div class="histTitle">최근 플레이 (점수 높은 순)</div><table class="recTable"><tr><th>날짜</th><th>점수</th><th>웨이브</th><th>처치</th><th>능력</th></tr>';
+      for (const h of [...r.history].sort((a, b) => b.score - a.score)) {
         const isBest = r.best && h.date === r.best.date;
         html += `<tr${isBest ? ' class="best"' : ''}><td>${fmtDate(h.date)}</td><td>${h.score}</td><td>${h.wave}</td><td>${h.kills}</td><td class="ab">${icons(h.abil)}</td></tr>`;
       }

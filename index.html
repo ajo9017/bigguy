@@ -108,6 +108,9 @@
   .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
   .tab { flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #3d4175; background: transparent; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
   .tab.on { background: #ffd84a; color: #2a1a0a; border-color: #ffd84a; }
+  .tab.sub { padding: 7px; font-size: 14px; }
+  .recTable tr.me td { background: rgba(255, 216, 74, .22); color: #ffd84a; font-weight: 900; border-top: 1px solid #ffd84a; border-bottom: 1px solid #ffd84a; }
+  .recTable tr.me td.nm::before { content: '👉 '; }
   .myName { font-size: 14px; opacity: .8; margin-bottom: 10px; }
   .recTable td.nm { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -162,7 +165,15 @@
       <button class="tab on" data-tab="rank">🌏 전체 랭킹</button>
       <button class="tab" data-tab="mine">🏆 내 기록</button>
     </div>
-    <div id="rankBody"></div>
+    <div id="rankBody">
+      <div class="myName" id="myName"></div>
+      <div class="tabs subs" id="rankTabs">
+        <button class="tab sub on" data-period="today">오늘</button>
+        <button class="tab sub" data-period="week">주간</button>
+        <button class="tab sub" data-period="all">누적</button>
+      </div>
+      <div id="rankList"></div>
+    </div>
     <div id="recBody" class="hidden"></div>
     <button class="ghost" id="recClose">닫기</button>
   </div>
