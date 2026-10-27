@@ -66,6 +66,9 @@ window.GAME_DATA = {
     { grunt: 5, charger: 2, brute: 1 },
     { grunt: 6, charger: 3, brute: 2 },
   ],
+  // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
+  meat: { every: 3, delay: 5, heal: 40, radius: 20 },
+
   endlessScale: 1.25,
   spawnInterval: 0.9,
   maxAlive: 7,

@@ -115,11 +115,11 @@
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, clearT: -1, overT: 0,
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
     chainN: 0, chainT: 0, banner: null, picking: false, choices: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [];
+  let player, enemies = [], particles = [], items = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -335,8 +335,8 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1 });
-    enemies = []; particles = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
+    enemies = []; particles = []; items = [];
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -390,6 +390,7 @@
     shuffle(game.queue);
     game.spawnT = 1.2;
     game.clearT = -1;
+    game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.banner = { text: `WAVE ${i + 1}`, t: 2, max: 2 };
     Sfx.play('wave');
   }
@@ -413,6 +414,7 @@
   function updateWaves(dt) {
     if (game.banner) { game.banner.t -= dt; if (game.banner.t <= 0) game.banner = null; }
     if (player.falling) return;
+    if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
     const alive = enemies.filter(e => !e.falling).length;
     if (game.queue.length) {
       game.spawnT -= dt;
@@ -431,6 +433,33 @@
         if (game.clearT <= 0) openPick();
       }
     }
+  }
+
+  // ---------- 회복 고기 ----------
+  function dropMeat() {
+    const a = rand(0, Math.PI * 2), d = rand(0.15, 0.6) * R;
+    items.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
+    text(0, 0, 200, '고기 투하!', '#ffb36b', 24);
+  }
+
+  function updateItems(dt) {
+    for (const it of items) {
+      it.t += dt;
+      if (it.z > 0) {
+        it.vz -= GRAVITY * dt; it.z += it.vz * dt;
+        if (it.z <= 0) { it.z = 0; it.vz = 0; burst(it.x, it.y, 2, '#d8d2c0', 8, 200); }
+        continue;
+      }
+      const p = player;
+      if (p.falling || Math.hypot(p.x - it.x, p.y - it.y) > p.r + it.r) continue;
+      it.taken = true;
+      const heal = Math.min(D.meat.heal, Math.round(p.pct));
+      p.pct = Math.max(0, p.pct - D.meat.heal);
+      burst(it.x, it.y, 10, '#7dff9a', 12, 260);
+      text(p.x, p.y, p.r * 3, heal > 0 ? `냠! -${heal}%` : '냠!', '#7dff9a', 26);
+      Sfx.play('pick');
+    }
+    items = items.filter(it => !it.taken);
   }
 
   // ---------- 파티클 ----------
@@ -814,6 +843,7 @@
       if (!e.falling && e.state !== 'spawn' && Math.hypot(e.x, e.y) > R) startFall(e);
     }
     enemies = enemies.filter(e => !e.dead);
+    updateItems(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -923,6 +953,28 @@
       const half = a.arc * Math.PI / 360;
       groundArc(player.x, player.y, a.range + player.r * 0.5, player.face - half, player.face + half,
         a.spin ? '#8fd3ff' : (a.finisher ? '#ffd84a' : '#ffffff'), 0.35 * (1 - u));
+    }
+  }
+
+  // 뼈다귀 달린 만화 고기. 떨어지는 동안은 그림자만 바닥에, 고기는 공중에
+  function drawItems() {
+    for (const it of items) {
+      const r = it.r * S, px = sx(it.x), gy = sy(it.y, 0);
+      const s = 1 / (1 + it.z / 300);
+      ctx.fillStyle = `rgba(0,0,0,${0.3 * s})`;
+      ctx.beginPath(); ctx.ellipse(px, gy, r * 1.2 * s, r * 1.2 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
+      const py = sy(it.y, it.z) - r * (1 + (it.z > 0 ? 0 : 0.15 * Math.sin(it.t * 5)));
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-0.5);
+      limb(r * 0.3, 0, r * 1.6, 0, r * 0.35, '#f4ecd8', '#3a2a1a', 2);
+      circle(r * 1.65, -r * 0.18, r * 0.25, '#f4ecd8', '#3a2a1a', 2);
+      circle(r * 1.65, r * 0.18, r * 0.25, '#f4ecd8', '#3a2a1a', 2);
+      ctx.beginPath(); ctx.ellipse(-r * 0.2, 0, r * 0.95, r * 0.75, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#b5542e'; ctx.fill(); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(-r * 0.45, -r * 0.25, r * 0.35, r * 0.18, -0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,220,180,0.6)'; ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -1352,6 +1404,7 @@
     for (const e of back) drawEntity(e);
     drawPillar();
     drawGround(all);
+    drawItems();
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));
     for (const e of front) drawEntity(e);
@@ -1390,5 +1443,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, startGame, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, startGame, openPick, choose };
 })();
