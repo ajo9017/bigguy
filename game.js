@@ -17,7 +17,7 @@
     title: $('title'), over: $('over'), overStats: $('overStats'), touch: $('touch'), btnAtk: $('btnAtk'), help: $('help'),
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'),
-    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), myName: $('myName'), nameInput: $('nameInput'),
+    records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'),myName: $('myName'), nameInput: $('nameInput'),
   };
 
   // ---------- 화면 ----------
@@ -384,8 +384,20 @@
     return `&created_at=gte.${encodeURIComponent(d.toISOString())}`;
   };
 
+  // 오늘 랭킹은 자정에 초기화되고, 주간(최근 7일)은 자정마다 가장 오래된 하루가 빠진다
+  function updateRankReset() {
+    if (rankPeriod === 'all') { ui.rankReset.textContent = ''; return; }
+    const next = new Date();
+    next.setHours(24, 0, 0, 0);
+    const s = Math.max(0, Math.floor((next - Date.now()) / 1000));
+    const t = `${Math.floor(s / 3600)}시간 ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}분 ${String(s % 60).padStart(2, '0')}초`;
+    ui.rankReset.textContent = rankPeriod === 'today' ? `⏳ 초기화까지 ${t}` : `⏳ 다음 갱신(가장 오래된 하루 제외)까지 ${t}`;
+  }
+  setInterval(() => { if (!ui.records.classList.contains('hidden') && !ui.rankBody.classList.contains('hidden')) updateRankReset(); }, 1000);
+
   async function loadRanking() {
     const period = rankPeriod;
+    updateRankReset();
     for (const b of document.querySelectorAll('#rankTabs .sub')) b.classList.toggle('on', b.dataset.period === period);
     ui.rankList.innerHTML = '<div class="chatNote">불러오는 중...</div>';
     try {
