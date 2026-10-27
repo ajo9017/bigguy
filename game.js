@@ -115,11 +115,11 @@
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, clearT: -1, overT: 0,
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
     chainN: 0, chainT: 0, banner: null, picking: false, choices: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [];
+  let player, enemies = [], particles = [], items = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -242,18 +242,46 @@
     ui.btnChat.classList.remove('hidden');
     ui.chatText.blur();
   }
+  // 요청 현황: 공개 GitHub API로 [요청] 이슈 상태를 읽는다 (로그인 불필요). 실패하면 이 기기에서 보낸 목록만 보여준다
+  function reqStatus(i) {
+    const labels = i.labels.map(l => l.name);
+    if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : ['done', '✅ 반영됨'];
+    if (labels.includes('작업중')) return ['work', '🔧 작업 중'];
+    if (labels.includes('일부 반영')) return ['part', '🟡 일부 반영'];
+    return ['wait', '⏳ 대기 중'];
+  }
   function renderChatHist() {
-    const list = storage.get('bigguy.requests', []);
-    ui.chatHist.innerHTML = '';
-    if (!list.length) return;
-    const h = document.createElement('div');
-    h.className = 'histTitle'; h.textContent = '내가 보낸 요청';
-    ui.chatHist.appendChild(h);
-    for (const r of list) {
-      const d = document.createElement('div');
-      d.className = 'histItem'; d.textContent = r.text;
-      ui.chatHist.appendChild(d);
-    }
+    ui.chatHist.innerHTML = '<div class="histTitle">요청 현황</div><div class="chatNote">불러오는 중...</div>';
+    fetch(`https://api.github.com/repos/${D.feedback.repo}/issues?state=all&per_page=40`)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(list => {
+        const reqs = list.filter(i => !i.pull_request && i.title.startsWith('[요청]'));
+        ui.chatHist.innerHTML = '<div class="histTitle">요청 현황</div>';
+        if (!reqs.length) ui.chatHist.innerHTML += '<div class="chatNote">아직 접수된 요청이 없어요</div>';
+        for (const i of reqs) {
+          const [cls, label] = reqStatus(i);
+          const a = document.createElement('a');
+          a.className = 'reqItem'; a.href = i.html_url; a.target = '_blank'; a.rel = 'noopener';
+          a.innerHTML = `<span class="badge ${cls}">${label}</span><span class="rt"></span><span class="rn">#${i.number}</span>`;
+          a.querySelector('.rt').textContent = i.title.replace(/^\[요청\]\s*/, '');
+          ui.chatHist.appendChild(a);
+        }
+        if (reqs.length) {
+          const n = document.createElement('div');
+          n.className = 'chatNote';
+          n.textContent = `주인(${D.feedback.repo.split('/')[0]})의 요청은 자동으로 반영돼요. 다른 사람의 요청은 대기 중으로 남고, 주인이 그 이슈에 '반영' 댓글을 달면 작업을 시작해요.`;
+          ui.chatHist.appendChild(n);
+        }
+      })
+      .catch(() => {
+        const list = storage.get('bigguy.requests', []);
+        ui.chatHist.innerHTML = '<div class="histTitle">내가 보낸 요청</div><div class="chatNote">요청 현황을 불러오지 못했어요</div>';
+        for (const r of list) {
+          const d = document.createElement('div');
+          d.className = 'histItem'; d.textContent = r.text;
+          ui.chatHist.appendChild(d);
+        }
+      });
   }
   function sendRequest() {
     const text = ui.chatText.value.trim();
@@ -334,9 +362,9 @@
 
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0 });
-    enemies = []; particles = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1 });
+    enemies = []; particles = []; items = [];
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -390,6 +418,7 @@
     shuffle(game.queue);
     game.spawnT = 1.2;
     game.clearT = -1;
+    game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.banner = { text: `WAVE ${i + 1}`, t: 2, max: 2 };
     Sfx.play('wave');
   }
@@ -413,6 +442,7 @@
   function updateWaves(dt) {
     if (game.banner) { game.banner.t -= dt; if (game.banner.t <= 0) game.banner = null; }
     if (player.falling) return;
+    if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
     const alive = enemies.filter(e => !e.falling).length;
     if (game.queue.length) {
       game.spawnT -= dt;
@@ -431,6 +461,33 @@
         if (game.clearT <= 0) openPick();
       }
     }
+  }
+
+  // ---------- 회복 고기 ----------
+  function dropMeat() {
+    const a = rand(0, Math.PI * 2), d = rand(0.15, 0.6) * R;
+    items.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
+    text(0, 0, 200, '고기 투하!', '#ffb36b', 24);
+  }
+
+  function updateItems(dt) {
+    for (const it of items) {
+      it.t += dt;
+      if (it.z > 0) {
+        it.vz -= GRAVITY * dt; it.z += it.vz * dt;
+        if (it.z <= 0) { it.z = 0; it.vz = 0; burst(it.x, it.y, 2, '#d8d2c0', 8, 200); }
+        continue;
+      }
+      const p = player;
+      if (p.falling || Math.hypot(p.x - it.x, p.y - it.y) > p.r + it.r) continue;
+      it.taken = true;
+      const heal = Math.min(D.meat.heal, Math.round(p.pct));
+      p.pct = Math.max(0, p.pct - D.meat.heal);
+      burst(it.x, it.y, 10, '#7dff9a', 12, 260);
+      text(p.x, p.y, p.r * 3, heal > 0 ? `냠! -${heal}%` : '냠!', '#7dff9a', 26);
+      Sfx.play('pick');
+    }
+    items = items.filter(it => !it.taken);
   }
 
   // ---------- 파티클 ----------
@@ -492,7 +549,7 @@
     p.comboT = a.comboWindow + a.duration;
     const finisher = p.combo === 3;
     const spin = finisher && lvl('cyclone') > 0;
-    const range = a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1);
+    const range = a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * p.grow;
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin, shocked: false, range, arc: spin ? 360 : a.arc + ab('wide_swing', 0) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
@@ -517,6 +574,24 @@
         Sfx.play('roar');
       }
     }
+
+    // 거대화: 일정 시간마다 몸집이 커졌다가 돌아온다
+    if (lvl('giant')) {
+      const G = ABIL.giant;
+      if (p.giant > 0) {
+        p.giant -= dt;
+        if (p.giant <= 0) p.giantT = 0;
+      } else if ((p.giantT += dt) >= G.every) {
+        p.giant = ab('giant');
+        fx.shake = Math.max(fx.shake, 16);
+        ring(p.x, p.y, p.r, '#ffd84a', p.r * 2);
+        text(p.x, p.y, p.r * 4, '거대화!', '#ffd84a', 30);
+        Sfx.play('roar');
+      }
+    }
+    p.grow += ((p.giant > 0 ? ABIL.giant.scale : 1) - p.grow) * Math.min(1, dt * 6);
+    p.r = D.player.radius * p.grow;
+    p.mass = D.player.mass * ab('heavy', 1) * p.grow;
 
     if (p.hitstun > 0) {
       p.hitstun -= dt;
@@ -550,7 +625,7 @@
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
         const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        const kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1);
+        const kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
       }
     }
@@ -796,6 +871,7 @@
       if (!e.falling && e.state !== 'spawn' && Math.hypot(e.x, e.y) > R) startFall(e);
     }
     enemies = enemies.filter(e => !e.dead);
+    updateItems(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -905,6 +981,28 @@
       const half = a.arc * Math.PI / 360;
       groundArc(player.x, player.y, a.range + player.r * 0.5, player.face - half, player.face + half,
         a.spin ? '#8fd3ff' : (a.finisher ? '#ffd84a' : '#ffffff'), 0.35 * (1 - u));
+    }
+  }
+
+  // 뼈다귀 달린 만화 고기. 떨어지는 동안은 그림자만 바닥에, 고기는 공중에
+  function drawItems() {
+    for (const it of items) {
+      const r = it.r * S, px = sx(it.x), gy = sy(it.y, 0);
+      const s = 1 / (1 + it.z / 300);
+      ctx.fillStyle = `rgba(0,0,0,${0.3 * s})`;
+      ctx.beginPath(); ctx.ellipse(px, gy, r * 1.2 * s, r * 1.2 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
+      const py = sy(it.y, it.z) - r * (1 + (it.z > 0 ? 0 : 0.15 * Math.sin(it.t * 5)));
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-0.5);
+      limb(r * 0.3, 0, r * 1.6, 0, r * 0.35, '#f4ecd8', '#3a2a1a', 2);
+      circle(r * 1.65, -r * 0.18, r * 0.25, '#f4ecd8', '#3a2a1a', 2);
+      circle(r * 1.65, r * 0.18, r * 0.25, '#f4ecd8', '#3a2a1a', 2);
+      ctx.beginPath(); ctx.ellipse(-r * 0.2, 0, r * 0.95, r * 0.75, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#b5542e'; ctx.fill(); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(-r * 0.45, -r * 0.25, r * 0.35, r * 0.18, -0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,220,180,0.6)'; ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -1334,6 +1432,7 @@
     for (const e of back) drawEntity(e);
     drawPillar();
     drawGround(all);
+    drawItems();
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));
     for (const e of front) drawEntity(e);
@@ -1372,5 +1471,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, startGame, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, startGame, openPick, choose };
 })();
