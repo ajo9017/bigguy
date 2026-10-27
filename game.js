@@ -584,8 +584,9 @@
       const p = player;
       if (p.falling || Math.hypot(p.x - it.x, p.y - it.y) > p.r + it.r) continue;
       it.taken = true;
-      const heal = Math.min(D.meat.heal, Math.round(p.pct));
-      p.pct = Math.max(0, p.pct - D.meat.heal);
+      const mh = Math.round(D.meat.heal * ab('meat_lover', 1));
+      const heal = Math.min(mh, Math.round(p.pct));
+      p.pct = Math.max(0, p.pct - mh);
       burst(it.x, it.y, 10, '#7dff9a', 12, 260);
       text(p.x, p.y, p.r * 3, heal > 0 ? `냠! -${heal}%` : '냠!', '#7dff9a', 26);
       Sfx.play('pick');
@@ -657,8 +658,8 @@
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
     if (!spin) {
-      p.vx += Math.cos(p.face) * a.lunge;
-      p.vy += Math.sin(p.face) * a.lunge;
+      p.vx += Math.cos(p.face) * a.lunge * ab('lunge', 1);
+      p.vy += Math.sin(p.face) * a.lunge * ab('lunge', 1);
     }
     Sfx.play(finisher ? 'whoosh' : 'swish');
   }
@@ -677,6 +678,9 @@
         Sfx.play('roar');
       }
     }
+
+    const rg = ab('regen', 0);
+    if (rg && p.pct > 0) p.pct = Math.max(0, p.pct - rg * dt);
 
     // 거대화: 일정 시간마다 몸집이 커졌다가 돌아온다
     if (lvl('giant')) {
@@ -728,8 +732,16 @@
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
         const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        const kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
+        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
+        kb *= 1 + p.pct / 100 * ab('berserk', 0);
+        if (e.pct >= 100) kb *= ab('execute', 1);
+        if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
+        const vamp = ab('vampire', 0);
+        if (vamp && p.pct > 0) {
+          p.pct = Math.max(0, p.pct - vamp);
+          text(p.x, p.y, p.r * 3, `-${vamp}%`, '#7dff9a', 16);
+        }
       }
     }
     if (a.finisher && !a.shocked && a.t > def.active[1] && lvl('shockwave')) {
@@ -744,7 +756,7 @@
     const power = kb * (1 + e.pct / 80) / e.mass;
     e.vx += nx * power; e.vy += ny * power;
     e.state = 'stun'; e.st = 0;
-    e.hitstun = Math.min(1.2, 0.15 + power / 1500);
+    e.hitstun = Math.min(1.2, 0.15 + power / 1500) * ab('stun', 1);
     e.flash = 0.12; e.sqx = 1.35; e.sqy = 0.7; e.tilt = (nx >= 0 ? 1 : -1) * 0.45;
     fx.hitstop = Math.max(fx.hitstop, heavy ? 0.09 : 0.045);
     fx.shake = Math.max(fx.shake, heavy ? 10 : 5);
@@ -766,7 +778,7 @@
     if (lvl('grip') && Math.hypot(p.x, p.y) > R * 0.7) power *= ab('grip');
     p.vx += nx * power; p.vy += ny * power;
     p.hitstun = 0.22 + power / 1800;
-    p.inv = 0.5; p.hurt = 0.7; p.flash = 0.18; p.atk = null;
+    p.inv = ab('dodge', 0.5); p.hurt = 0.7; p.flash = 0.18; p.atk = null;
     p.sqx = 1.45; p.sqy = 0.6; p.tilt = (nx >= 0 ? 1 : -1) * 0.7;
     fx.hitstop = 0.12 + Math.min(0.1, power / 9000);
     fx.shake = Math.min(40, 12 + power / 35);
@@ -868,7 +880,7 @@
       return;
     }
     game.kills++;
-    game.chainN++; game.chainT = 1.5;
+    game.chainN++; game.chainT = ab('chain', 1.5);
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
