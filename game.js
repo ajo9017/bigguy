@@ -119,7 +119,7 @@
   // ---------- 상태 ----------
   const game = {
     state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
-    chainN: 0, chainT: 0, banner: null, picking: false, choices: [],
+    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [];
@@ -681,6 +681,7 @@
     const boss = game.queue.filter(isBoss);
     game.queue = game.queue.filter(k => !isBoss(k)).concat(boss);
     game.spawnT = 1.2;
+    game.bossT = -1;
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
@@ -712,7 +713,21 @@
     const alive = enemies.filter(e => !e.falling).length;
     if (game.queue.length) {
       game.spawnT -= dt;
-      if (game.spawnT <= 0 && alive < D.maxAlive) { spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
+      const next = game.queue[game.queue.length - 1];
+      if (game.spawnT <= 0 && alive < D.maxAlive) {
+        if (D.enemies[next] && D.enemies[next].boss) {
+          // 보스 등장 연출: 경고 문구와 붉은 화면, 흔들림 뒤에 등장한다
+          if (game.bossT < 0) {
+            game.bossT = 1.8;
+            game.banner = { text: '⚠ WARNING ⚠', sub: D.enemies[next].name + ' 접근 중...', color: '#ff4a4a', t: 1.8, max: 1.8 };
+            Sfx.play('roar');
+          }
+          game.bossT -= dt;
+          fx.red = Math.max(fx.red, 0.35 + 0.2 * Math.sin(game.bossT * 14));
+          fx.shake = Math.max(fx.shake, 3 + (1.8 - game.bossT) * 3);
+          if (game.bossT <= 0) { game.bossT = -1; fx.shake = 24; fx.zoom = 0.08; spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
+        } else { spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
+      }
     } else if (alive === 0) {
       if (game.clearT < 0) {
         game.clearT = 1.3;
@@ -1978,7 +1993,12 @@
       ctx.font = `900 ${Math.min(64, W * 0.12) * pop}px system-ui, sans-serif`;
       ctx.textBaseline = 'middle';
       ctx.lineWidth = 8; ctx.strokeStyle = '#000'; ctx.strokeText(b.text, W / 2, H * 0.24);
-      ctx.fillStyle = '#ffd84a'; ctx.fillText(b.text, W / 2, H * 0.24);
+      ctx.fillStyle = b.color || '#ffd84a'; ctx.fillText(b.text, W / 2, H * 0.24);
+      if (b.sub) {
+        ctx.font = `800 ${Math.min(26, W * 0.055)}px system-ui, sans-serif`;
+        ctx.lineWidth = 5; ctx.strokeText(b.sub, W / 2, H * 0.24 + Math.min(52, W * 0.1));
+        ctx.fillStyle = '#fff'; ctx.fillText(b.sub, W / 2, H * 0.24 + Math.min(52, W * 0.1));
+      }
       ctx.globalAlpha = 1;
     }
 
