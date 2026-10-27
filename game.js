@@ -122,7 +122,7 @@
     chainN: 0, chainT: 0, banner: null, picking: false, choices: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [], items = [], shots = [];
+  let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -606,7 +606,7 @@
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
-    enemies = []; particles = []; items = []; shots = [];
+    enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
     Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
@@ -699,7 +699,7 @@
       if (d > 260) break;
     }
     const e = makeEntity('enemy', def, Math.cos(bestA) * rr, Math.sin(bestA) * rr);
-    e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0;
+    e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0; e.zoneT = def.zone ? def.zone.every : 0;
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
     enemies.push(e);
@@ -878,6 +878,34 @@
       if (s.left <= 0 || Math.hypot(s.x, s.y) > R * 1.6) s.dead = true;
     }
     shots = shots.filter(s => !s.dead);
+  }
+
+  // 적 발사체와 장판
+  function updateEnemyShots(dt) {
+    const p = player, grounded = !p.falling && p.z <= 20 && game.state === 'play';
+    for (const s of eshots) {
+      s.x += s.vx * dt; s.y += s.vy * dt; s.left -= Math.hypot(s.vx, s.vy) * dt;
+      if (grounded && Math.hypot(p.x - s.x, p.y - s.y) < p.r + s.r) {
+        const l = Math.hypot(s.vx, s.vy) || 1;
+        hitPlayer(s.from, s.vx / l, s.vy / l, s.from.def.attack);
+        burst(s.x, s.y, s.r, s.color, 8, 300);
+        s.dead = true;
+      }
+      if (s.left <= 0 || Math.hypot(s.x, s.y) > R * 1.6) s.dead = true;
+    }
+    eshots = eshots.filter(s => !s.dead);
+    for (const z of zones) {
+      z.t += dt;
+      if (z.t < z.windup) continue;
+      z.dead = true;
+      ring(z.x, z.y, 2, '#ff7fe0', z.r * 0.4);
+      burst(z.x, z.y, 2, '#ff9bea', 14, 320);
+      fx.shake = Math.max(fx.shake, 10);
+      Sfx.play('fall');
+      const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy);
+      if (grounded && d <= z.r + p.r) hitPlayer(z.from, dx / (d || 1), dy / (d || 1), { damage: z.dmg, force: z.force });
+    }
+    zones = zones.filter(z => !z.dead);
   }
 
   function updatePlayer(p, dt) {
@@ -1070,6 +1098,27 @@
           if (enemies.filter(x => !x.falling).length < D.maxAlive + 3) for (let n = 0; n < sm.count; n++) spawnEnemy(sm.type);
           text(e.x, e.y, e.r * 3, '부하 소환!', '#ff6b6b', 22);
         }
+        const zn = e.def.zone;
+        if (zn && (e.zoneT -= dt) <= 0) {
+          e.zoneT = zn.every;
+          for (let n = 0; n < zn.count; n++) {
+            const a = rand(0, Math.PI * 2), o = n === 0 ? 0 : rand(40, 130);
+            zones.push({ x: p.x + Math.cos(a) * o, y: p.y + Math.sin(a) * o, r: zn.radius, t: 0, windup: zn.windup, dmg: zn.damage, force: zn.force, from: e });
+          }
+          text(e.x, e.y, e.r * 3, '장판!', '#ff7fe0', 22);
+          Sfx.play('windup');
+        }
+        if (e.def.behavior === 'shooter') {
+          // 사거리 안에서 거리를 유지하며 쏜다
+          if (d <= A.range && e.st > 0.4) { e.state = 'windup'; e.st = 0; Sfx.play('windup'); }
+          else {
+            const dir = d < A.range * 0.55 ? -1 : (d > A.range * 0.85 ? 1 : 0);
+            e.x += Math.cos(e.face) * e.def.speed * dt * dir;
+            e.y += Math.sin(e.face) * e.def.speed * dt * dir;
+            if (dir) e.walk += dt * 10;
+          }
+          break;
+        }
         const reach = charger ? A.range : A.range + p.r;
         if (d <= reach && e.st > 0.3) {
           e.state = 'windup'; e.st = 0;
@@ -1110,6 +1159,12 @@
             hitPlayer(e, Math.cos(e.face), Math.sin(e.face));
           }
           if (e.state === 'attack' && e.st >= A.dashTime) { e.state = 'recover'; e.st = 0; }
+        } else if (e.def.behavior === 'shooter') {
+          const S0 = e.def.shoot;
+          eshots.push({ x: e.x, y: e.y, vx: Math.cos(e.face) * S0.speed, vy: Math.sin(e.face) * S0.speed, r: S0.radius, color: S0.color, left: S0.life, from: e });
+          burst(e.x, e.y, e.r, S0.color, 6, 200);
+          Sfx.play('swish');
+          e.state = 'recover'; e.st = 0;
         } else {
           if (!e.didHit) {
             e.didHit = true;
@@ -1249,6 +1304,7 @@
     enemies = enemies.filter(e => !e.dead);
     updateItems(dt);
     updateShots(dt);
+    updateEnemyShots(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -1358,6 +1414,24 @@
       const half = a.arc * Math.PI / 360;
       groundArc(player.x, player.y, a.range + player.r * 0.5, player.face - half, player.face + half,
         a.spin ? '#8fd3ff' : (a.finisher ? '#ffd84a' : '#ffffff'), 0.35 * (1 - u));
+    }
+  }
+
+  function drawEnemyShots() {
+    for (const z of zones) {
+      const u = clamp(z.t / z.windup, 0, 1), rr = z.r * S, px = sx(z.x), py = sy(z.y, 0);
+      ctx.fillStyle = `rgba(255,90,220,${0.12 + 0.2 * u})`;
+      ctx.strokeStyle = `rgba(255,120,230,${0.5 + 0.4 * Math.sin(time * 20)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(px, py, rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(px, py, rr * u, rr * u * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    for (const s of eshots) {
+      const px = sx(s.x), py = sy(s.y, 26), r = s.r * S;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(px, sy(s.y, 0), r, r * SQ, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createRadialGradient(px, py, r * 0.1, px, py, r * 1.5);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, s.color); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 1.5, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -1940,6 +2014,7 @@
     drawPillar();
     drawGround(all);
     drawItems();
+    drawEnemyShots();
     drawShots();
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));

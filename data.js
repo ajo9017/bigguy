@@ -77,6 +77,19 @@ window.GAME_DATA = {
       attack: { range: 320, windup: 0.5, dashSpeed: 900, dashTime: 0.55, recover: 0.7, damage: 18, force: 950 },
     },
 
+    // 원거리 적 (16웨이브부터). behavior 'shooter' = 거리를 두고 shoot 발사체를 쏜다. zone = 일정 시간마다 플레이어 발밑에 장판(잠시 뒤 폭발)
+    mage: {
+      name: '마법사', color: '#5a7fd6', radius: 19, mass: 0.9, speed: 85, behavior: 'shooter', score: 450,
+      attack: { range: 280, windup: 0.6, recover: 1.3, damage: 9, force: 620 },
+      shoot: { speed: 330, radius: 11, color: '#7fb0ff', life: 700 },
+    },
+    witch: {
+      name: '장판 마녀', color: '#b04fa8', radius: 21, mass: 1.1, speed: 70, behavior: 'shooter', score: 650,
+      attack: { range: 300, windup: 0.7, recover: 1.5, damage: 9, force: 620 },
+      shoot: { speed: 300, radius: 11, color: '#ff7fe0', life: 700 },
+      zone: { every: 4.5, radius: 85, windup: 1.1, damage: 14, force: 900, count: 1 },
+    },
+
     // 보스: 5웨이브마다 하나씩, 매번 다른 보스가 나온다 (반복 없음). boss: true
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
@@ -97,6 +110,7 @@ window.GAME_DATA = {
       name: '질풍 닌자왕', color: '#33334f', radius: 36, mass: 5, speed: 130, behavior: 'charger', score: 5000, boss: true, crown: true,
       attack: { range: 300, windup: 0.5, dashSpeed: 1000, dashTime: 0.6, recover: 0.5, damage: 16, force: 1100 },
       summon: { every: 8, type: 'ninja', count: 2 },
+      zone: { every: 5, radius: 95, windup: 1.0, damage: 16, force: 1000, count: 2 },
     },
     boss_ogre: {
       name: '대왕 오우거', color: '#3f8a3a', radius: 56, mass: 11, speed: 70, behavior: 'walker', score: 6000, boss: true, teeth: true, crown: true,
@@ -109,6 +123,7 @@ window.GAME_DATA = {
       attack: { range: 360, windup: 0.6, dashSpeed: 1050, dashTime: 0.7, recover: 0.7, damage: 28, force: 1450 },
       slam: { every: 5, radius: 230, windup: 0.8, damage: 25, force: 1300 },
       summon: { every: 9, type: 'reaper', count: 1 },
+      zone: { every: 4, radius: 105, windup: 0.9, damage: 18, force: 1100, count: 3 },
     },
   },
 
@@ -212,20 +227,20 @@ window.GAME_DATA = {
     { rhino: 2, spiky: 3, tank: 3, grunt: 5 },                 // 13 코뿔소 등장
     { rhino: 2, rusher: 4, brute: 3, spiky: 3 },               // 14
     { boss_quake: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
-    { ninja: 4, rhino: 2, tank: 3, spiky: 3 },                 // 16 닌자 등장
-    { ninja: 5, rusher: 4, brute: 3, spiky: 3 },               // 17
+    { ninja: 4, rhino: 2, tank: 3, mage: 2 },                  // 16 닌자, 마법사 등장
+    { ninja: 5, rusher: 4, brute: 3, mage: 2 },                // 17
     { golem: 2, ninja: 4, rhino: 2, tank: 3 },                 // 18 골렘 등장
-    { golem: 2, ninja: 4, rusher: 4, spiky: 4, rhino: 2 },     // 19
-    { boss_storm: 1, ninja: 4, rusher: 4, runner: 4 },         // 20 보스: 질풍 닌자왕
+    { golem: 2, ninja: 4, rusher: 4, mage: 2, witch: 1 },      // 19 장판 마녀 등장
+    { boss_storm: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
     { hornet: 8, golem: 2, rhino: 3, spiky: 4 },               // 21 말벌 등장
-    { hornet: 8, ninja: 5, tank: 4, rhino: 3 },                // 22
+    { hornet: 8, mage: 3, witch: 2, tank: 4, rhino: 3 },       // 22
     { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4 },    // 23
     { ogre: 3, hornet: 6, golem: 2, ninja: 5 },                // 24 오우거 등장
     { boss_ogre: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
-    { ogre: 4, golem: 3, rhino: 3, ninja: 5, hornet: 5 },      // 26
+    { ogre: 4, golem: 3, mage: 3, witch: 2, hornet: 5 },       // 26
     { reaper: 3, ogre: 3, golem: 3, spiky: 5 },                // 27 저승사자 등장
     { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6 },     // 28
-    { reaper: 4, ogre: 4, golem: 4, tank: 5, rusher: 5 },      // 29
+    { reaper: 4, ogre: 4, witch: 3, mage: 3, rusher: 5 },      // 29
     { boss_reaper: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
   ],
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
