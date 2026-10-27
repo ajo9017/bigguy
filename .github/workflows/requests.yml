@@ -64,8 +64,19 @@ jobs:
             4. push하지 않는다. 다음 단계가 한다.
             5. 결과를 /tmp/result.md에 한국어 2~4줄로 쓴다: 무엇을 바꿨는지, 요청을 어떻게 해석했는지, 남은 것.
 
+      # claude-code-action이 git 인증을 자기 토큰으로 바꿨다가 정리하므로, 이 저장소 토큰으로 다시 설정한다.
+      # 커밋되지 않은 찌꺼기 파일이 있으면 pull --rebase가 거부하므로 먼저 치워 둔다.
       - name: main에 push (GitHub Pages 배포)
         run: |
+          git status --short
+          git log --oneline -3
+          if [ "$(git rev-list --count origin/main..HEAD)" = "0" ]; then
+            echo "새 커밋이 없어 push하지 않음"
+            exit 0
+          fi
+          git stash --include-untracked || true
+          git config --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git pull --rebase origin main
           git push origin HEAD:main
 
