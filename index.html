@@ -41,8 +41,8 @@
   /* 능력 선택 */
   #pick { background: rgba(8, 8, 16, .78); }
   #pickTitle { font-size: 22px; font-weight: 900; color: #ffd84a; }
-  .cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
-  .card { position: relative; width: min(250px, 86vw); padding: 16px 14px; border-radius: 16px; cursor: pointer;
+  .cards { display: flex; gap: 14px; justify-content: center; width: 100%; max-width: 900px; }
+  .card { position: relative; flex: 1 1 0; min-width: 0; max-width: 250px; padding: 16px 14px; border-radius: 16px; cursor: pointer;
     background: #232541; color: #fff; border: 3px solid #4b4f86; text-align: center;
     display: flex; flex-direction: column; gap: 6px; align-items: center; }
   .card:hover, .card:active { border-color: #ffd84a; transform: translateY(-2px); }
@@ -51,10 +51,17 @@
   .card .clv { font-size: 13px; font-weight: 800; color: #ffd84a; }
   .card .cdesc { font-size: 15px; opacity: .9; line-height: 1.4; }
   .card .ckey { position: absolute; top: 8px; left: 10px; font-size: 12px; opacity: .5; }
+  .card .ctext { display: flex; flex-direction: column; gap: 6px; }
+  /* 좁은 화면에서도 3장을 가로로 나란히 */
   @media (max-width: 600px) {
-    .card { flex-direction: row; text-align: left; gap: 12px; padding: 12px 14px; }
-    .card .icon { font-size: 34px; }
-    .card .ctext { display: flex; flex-direction: column; }
+    #pickTitle { font-size: 17px; }
+    .cards { gap: 8px; }
+    .card { padding: 10px 6px; gap: 4px; border-radius: 12px; }
+    .card .icon { font-size: 30px; }
+    .card .ctext { gap: 4px; }
+    .card .cname { font-size: 15px; word-break: keep-all; }
+    .card .clv { font-size: 11px; }
+    .card .cdesc { font-size: 12px; line-height: 1.35; word-break: keep-all; }
   }
 
   /* 채팅 */
