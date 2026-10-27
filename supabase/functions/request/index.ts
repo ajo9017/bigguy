@@ -1,4 +1,4 @@
-// Supabase Edge Function "request": 게임 안 개선 요청을 GitHub 이슈로 만든다.
+// Supabase Edge Function "clever-api" (대시보드에서 만들 때 붙은 이름. 코드 폴더 이름은 request): 게임 안 개선 요청을 GitHub 이슈로 만든다.
 // GitHub 토큰은 이 서버에만 있고 게임 코드에는 들어가지 않는다.
 //
 // 필요한 Secret (Supabase 대시보드 → Edge Functions → Secrets)

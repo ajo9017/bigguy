@@ -19,7 +19,7 @@
 - 주인공은 레퍼런스(머리띠, 흰 핫피, 근육질 아저씨)를 바탕으로 캔버스 도형으로 그린다(`drawPlayer`). 나중에 스프라이트 이미지로 교체할 수 있다
 
 ## 개선 요청
-게임 안 '💬 개선 요청'은 Supabase Edge Function(`supabase/functions/request`, Secret: `GITHUB_TOKEN`, `OWNER_CODE`)을 거쳐 제목이 `[요청]`으로 시작하는 GitHub 이슈를 바로 만든다. 게임을 떠나지 않는다.
+게임 안 '💬 개선 요청'은 Supabase Edge Function(대시보드 이름 `clever-api`, 코드 `supabase/functions/request/index.ts`, Secret: `GITHUB_TOKEN`, `OWNER_CODE`)을 거쳐 제목이 `[요청]`으로 시작하는 GitHub 이슈를 바로 만든다. 게임을 떠나지 않는다.
 주인 코드 없이 보낸 요청은 본문에 `bigguy:player` 표시가 붙고, 주인이 `반영` 댓글을 달기 전에는 자동 반영되지 않는다. 이 표시는 Edge Function만 붙이므로 게임 코드에서 지우거나 우회하는 길을 만들지 않는다.
 열린 이슈 중 `[요청]` 이슈가 플레이어의 개선 요청이다.
 - 자동 반영: `.github/workflows/requests.yml`이 저장소 주인(ajo9017)의 `[요청]` 이슈는 열리자마자, 다른 사람 것은 주인이 `반영` 댓글을 달면 Claude로 반영해서 `main`에 push한다. Secret `CLAUDE_CODE_OAUTH_TOKEN` 또는 `ANTHROPIC_API_KEY`가 필요하다
