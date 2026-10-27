@@ -334,7 +334,7 @@
 
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0 });
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1 });
     enemies = []; particles = [];
     Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
@@ -492,7 +492,7 @@
     p.comboT = a.comboWindow + a.duration;
     const finisher = p.combo === 3;
     const spin = finisher && lvl('cyclone') > 0;
-    const range = a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1);
+    const range = a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * p.grow;
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin, shocked: false, range, arc: spin ? 360 : a.arc + ab('wide_swing', 0) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
@@ -517,6 +517,24 @@
         Sfx.play('roar');
       }
     }
+
+    // 거대화: 일정 시간마다 몸집이 커졌다가 돌아온다
+    if (lvl('giant')) {
+      const G = ABIL.giant;
+      if (p.giant > 0) {
+        p.giant -= dt;
+        if (p.giant <= 0) p.giantT = 0;
+      } else if ((p.giantT += dt) >= G.every) {
+        p.giant = ab('giant');
+        fx.shake = Math.max(fx.shake, 16);
+        ring(p.x, p.y, p.r, '#ffd84a', p.r * 2);
+        text(p.x, p.y, p.r * 4, '거대화!', '#ffd84a', 30);
+        Sfx.play('roar');
+      }
+    }
+    p.grow += ((p.giant > 0 ? ABIL.giant.scale : 1) - p.grow) * Math.min(1, dt * 6);
+    p.r = D.player.radius * p.grow;
+    p.mass = D.player.mass * ab('heavy', 1) * p.grow;
 
     if (p.hitstun > 0) {
       p.hitstun -= dt;
@@ -550,7 +568,7 @@
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
         const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        const kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1);
+        const kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
       }
     }

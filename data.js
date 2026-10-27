@@ -54,6 +54,8 @@ window.GAME_DATA = {
     { id: 'roar',        icon: '📣', name: '기합',        lv: [8, 6, 4.5],       desc: v => `${v}초마다 기합으로 주변 적을 밀어냄` },
     { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 피해% -${v}` },
     { id: 'second_wind', icon: '🪽', name: '낙법',        lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
+    // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
+    { id: 'giant',       icon: '🗿', name: '거대화',      lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
   ],
 
   // 웨이브별 등장 마릿수. 마지막 웨이브 이후에는 endlessScale 배율로 계속 늘어난다.
