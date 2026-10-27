@@ -7,6 +7,9 @@ window.GAME_DATA = {
   // 게임 안 '개선 요청' 채팅이 이슈를 만드는 GitHub 저장소
   feedback: { repo: 'ajo9017/bigguy' },
 
+  // 전체 랭킹 저장소(Supabase). publishable 키는 공개용이고, 표는 읽기/추가만 허용된다(RLS)
+  ranking: { url: 'https://dpogvzcepzgjixfitcjm.supabase.co', key: 'sb_publishable_A83NtpfCdZGCbVG8Q5DOHQ_Et4zovtQ', top: 30 },
+
   player: {
     radius: 34,
     mass: 1.6,

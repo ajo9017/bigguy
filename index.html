@@ -104,6 +104,19 @@
   .recTable tr.best td { color: #ffd84a; font-weight: 800; }
   .recTable td.ab { font-size: 14px; }
   #records .ghost { margin-top: 14px; }
+  #records { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab { flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #3d4175; background: transparent; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .tab.on { background: #ffd84a; color: #2a1a0a; border-color: #ffd84a; }
+  .myName { font-size: 14px; opacity: .8; margin-bottom: 10px; }
+  .recTable td.nm { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 이름 입력 */
+  .nameRow { display: flex; gap: 8px; align-items: center; }
+  .nameRow label { font-size: 15px; font-weight: 700; opacity: .8; }
+  #nameInput { width: 170px; padding: 10px 12px; border-radius: 10px; border: 2px solid #4b4f86; background: #12132a; color: #fff;
+    font-size: 16px; font-family: inherit; text-align: center; user-select: text; -webkit-user-select: text; }
+  .rankLine { font-size: 18px; font-weight: 800; color: #8fd3ff; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -119,9 +132,13 @@
   <h1>BIG GUY</h1>
   <div class="sub">기둥 위에서 버텨라. 떨어지면 끝!</div>
   <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
+  <div class="nameRow">
+    <label for="nameInput">이름</label>
+    <input id="nameInput" maxlength="12" placeholder="랭킹에 표시될 이름" autocomplete="off" enterkeyhint="go">
+  </div>
   <div class="row">
     <button class="big" id="btnStart">시작</button>
-    <button class="ghost" id="btnRec">🏆 기록</button>
+    <button class="ghost" id="btnRec">🏆 랭킹</button>
   </div>
 </div>
 
@@ -130,7 +147,7 @@
   <div class="sub" id="overStats"></div>
   <div class="row">
     <button class="big" id="btnRetry">다시 하기</button>
-    <button class="ghost" id="btnRec2">🏆 기록</button>
+    <button class="ghost" id="btnRec2">🏆 랭킹</button>
   </div>
 </div>
 
@@ -141,8 +158,12 @@
 
 <div id="records" class="overlay hidden">
   <div class="recBox">
-    <h2>🏆 내 기록</h2>
-    <div id="recBody"></div>
+    <div class="tabs">
+      <button class="tab on" data-tab="rank">🌏 전체 랭킹</button>
+      <button class="tab" data-tab="mine">🏆 내 기록</button>
+    </div>
+    <div id="rankBody"></div>
+    <div id="recBody" class="hidden"></div>
     <button class="ghost" id="recClose">닫기</button>
   </div>
 </div>
