@@ -121,7 +121,7 @@
     chainN: 0, chainT: 0, banner: null, picking: false, choices: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [], items = [];
+  let player, enemies = [], particles = [], items = [], shots = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -495,6 +495,7 @@
   function attackText(ch) {
     if (!ch.attack) return '';
     const b = D.player.attack, a = ch.attack, t = [];
+    if (a.ranged) return '🏹 원거리 공격 · 3타째 전용기술';
     if (a.range && a.range !== b.range) t.push(a.range > b.range ? '사거리 길다' : '사거리 짧다');
     if (a.duration && a.duration !== b.duration) t.push(a.duration < b.duration ? '공격 빠름' : '공격 느림');
     if (a.knockback && a.knockback > b.knockback) t.push('넉백 강함');
@@ -566,7 +567,7 @@
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
-    enemies = []; particles = []; items = [];
+    enemies = []; particles = []; items = []; shots = [];
     Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
@@ -779,15 +780,65 @@
     p.comboT = a.comboWindow + a.duration;
     const finisher = p.combo === 3;
     const spin = finisher && lvl('cyclone') > 0;
-    const range = a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * p.grow;
-    p.atk = { def: a, t: 0, hit: new Set(), finisher, spin, shocked: false, range, arc: spin ? 360 : a.arc + ab('wide_swing', 0) };
+    const ranged = !!a.ranged;
+    const range = a.range * ab('long_reach', 1) * (spin && !ranged ? ab('cyclone') : 1) * (ranged ? 1 : p.grow);
+    p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0)) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
-    if (!spin) {
+    if (!spin && a.lunge) {
       p.vx += Math.cos(p.face) * a.lunge * ab('lunge', 1);
       p.vy += Math.sin(p.face) * a.lunge * ab('lunge', 1);
     }
     Sfx.play(finisher ? 'whoosh' : 'swish');
+  }
+
+  // 원거리 공격: 발사체를 쏜다. 3타째는 캐릭터 전용기술(ranged.fin)로 바뀐다
+  function fireShots(p, a) {
+    const R0 = a.def.ranged, fin = a.finisher ? R0.fin : null;
+    const n = (fin && fin.count) || 1, spread = (fin && fin.spread) || 0;
+    const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
+    let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul : 1) / (n > 1 ? 1.4 : 1);
+    kb *= 1 + p.pct / 100 * ab('berserk', 0);
+    if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
+    const sp = (fin && fin.speed) || R0.speed;
+    for (let i = 0; i < n; i++) {
+      const ang = p.face + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
+      shots.push({
+        x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        r: (fin && fin.radius) || R0.radius, color: (fin && fin.color) || R0.color, shape: R0.shape, left: a.range,
+        dmg, kb, heavy: a.finisher, pierce: !!(fin && fin.pierce), boom: (fin && fin.boom) || 0, hit: new Set(),
+      });
+    }
+    burst(p.x + Math.cos(p.face) * p.r * 1.4, p.y + Math.sin(p.face) * p.r * 1.4, p.r * 0.6, R0.color, a.finisher ? 8 : 4, 200);
+    Sfx.play(a.finisher ? 'whoosh' : 'swish');
+  }
+
+  function updateShots(dt) {
+    for (const s of shots) {
+      const step = Math.hypot(s.vx, s.vy) * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt; s.left -= step;
+      for (const e of enemies) {
+        if (s.dead || s.hit.has(e) || !activeEnemy(e) || e.z < -1) continue;
+        const dx = e.x - s.x, dy = e.y - s.y;
+        if (Math.hypot(dx, dy) > e.r + s.r) continue;
+        s.hit.add(e);
+        let kb = s.kb;
+        if (e.pct >= 100) kb *= ab('execute', 1);
+        const nx = Math.cos(s.ang), ny = Math.sin(s.ang);
+        hitEnemy(e, nx, ny, s.dmg, kb, s.heavy);
+        const vamp = ab('vampire', 0);
+        if (vamp && player.pct > 0) player.pct = Math.max(0, player.pct - vamp);
+        if (s.boom) {
+          ring(s.x, s.y, 6, s.color, s.boom / 3);
+          burst(s.x, s.y, 8, s.color, 14, 420);
+          pushAround({ x: s.x, y: s.y }, s.boom, 3, 520, true, s.hit);
+          fx.shake = Math.max(fx.shake, 12);
+          s.dead = true;
+        } else if (!s.pierce) s.dead = true;
+      }
+      if (s.left <= 0 || Math.hypot(s.x, s.y) > R * 1.6) s.dead = true;
+    }
+    shots = shots.filter(s => !s.dead);
   }
 
   function updatePlayer(p, dt) {
@@ -855,7 +906,9 @@
     if (!a) return;
     a.t += dt * ab('rapid', 1);
     const def = a.def;
-    if (a.t >= def.active[0] && a.t <= def.active[1]) {
+    if (a.ranged) {
+      if (!a.fired && a.t >= def.active[0]) { a.fired = true; fireShots(p, a); }
+    } else if (a.t >= def.active[0] && a.t <= def.active[1]) {
       const fxv = Math.cos(p.face), fyv = Math.sin(p.face);
       for (const e of enemies) {
         if (a.hit.has(e) || !activeEnemy(e)) continue;
@@ -882,7 +935,7 @@
         }
       }
     }
-    if (a.finisher && !a.shocked && a.t > def.active[1] && lvl('shockwave')) {
+    if (!a.ranged && a.finisher && !a.shocked && a.t > def.active[1] && lvl('shockwave')) {
       a.shocked = true;
       pushAround(p, ab('shockwave'), 4, 450, true, a.hit);
     }
@@ -1156,6 +1209,7 @@
     }
     enemies = enemies.filter(e => !e.dead);
     updateItems(dt);
+    updateShots(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -1260,11 +1314,35 @@
       ctx.restore();
     }
     const a = player.atk;
-    if (a) {
+    if (a && !a.ranged) {
       const u = a.t / a.def.duration;
       const half = a.arc * Math.PI / 360;
       groundArc(player.x, player.y, a.range + player.r * 0.5, player.face - half, player.face + half,
         a.spin ? '#8fd3ff' : (a.finisher ? '#ffd84a' : '#ffffff'), 0.35 * (1 - u));
+    }
+  }
+
+  function drawShots() {
+    for (const s of shots) {
+      const px = sx(s.x), py = sy(s.y, 26), r = s.r * S;
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(px, sy(s.y, 0), r, r * SQ, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(px, py);
+      const ang = Math.atan2(Math.sin(s.ang) * SQ, Math.cos(s.ang));
+      if (s.shape === 'orb') {
+        const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 1.5);
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, s.color); g.addColorStop(1, 'rgba(181,124,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.rotate(ang);
+        const len = s.shape === 'arrow' ? r * 4.5 : r * 3;
+        ctx.strokeStyle = s.shape === 'arrow' ? '#8a5a2b' : s.color; ctx.lineWidth = Math.max(2, r * (s.shape === 'arrow' ? 0.3 : 0.9)); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(-len, 0); ctx.lineTo(0, 0); ctx.stroke();
+        if (s.shape === 'arrow') {
+          ctx.fillStyle = '#e8e8f0'; ctx.beginPath(); ctx.moveTo(r * 0.9, 0); ctx.lineTo(0, -r * 0.5); ctx.lineTo(0, r * 0.5); ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.restore();
     }
   }
 
@@ -1552,6 +1630,22 @@
       ctx.quadraticCurveTo(hx, hy - hh * 0.8, hx - hw * 1.35, hy - hh * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#f2f2f2'; ctx.font = `900 ${hh * 0.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('☠', hx, hy - hh * 0.95);
+    } else if (L.hat === 'wizard') {
+      ctx.fillStyle = tint(e, L.coat || '#4b2e8a');
+      ctx.beginPath(); ctx.moveTo(hx - hw * 1.4, hy - hh * 0.55); ctx.lineTo(hx + hw * 0.2, hy - hh * 2.5); ctx.lineTo(hx + hw * 1.4, hy - hh * 0.55);
+      ctx.quadraticCurveTo(hx, hy - hh * 0.8, hx - hw * 1.4, hy - hh * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd84a'; ctx.font = `900 ${hh * 0.45}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('★', hx, hy - hh * 1.05);
+    } else if (L.hat === 'helmet') {
+      ctx.fillStyle = tint(e, '#4f6b3a');
+      ctx.beginPath(); ctx.ellipse(hx, hy - hh * 0.55, hw * 1.15, hh * 0.8, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillRect(hx - hw * 1.3, hy - hh * 0.6, hw * 2.6, hh * 0.18); ctx.strokeRect(hx - hw * 1.3, hy - hh * 0.6, hw * 2.6, hh * 0.18);
+    } else if (L.hat === 'hood') {
+      ctx.fillStyle = tint(e, '#2f7a46');
+      ctx.beginPath(); ctx.moveTo(hx - hw * 1.2, hy + hh * 0.2); ctx.quadraticCurveTo(hx - hw * 1.3, hy - hh * 1.6, hx + hw * 0.1, hy - hh * 1.5);
+      ctx.quadraticCurveTo(hx + hw * 1.3, hy - hh * 1.5, hx + hw * 1.2, hy + hh * 0.2); ctx.lineTo(hx + hw * 0.9, hy - hh * 0.5); ctx.quadraticCurveTo(hx, hy - hh * 1.0, hx - hw * 0.9, hy - hh * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = lw;
+      ctx.fillStyle = '#e8d44a'; ctx.beginPath(); ctx.moveTo(hx + hw * 0.9, hy - hh * 1.4); ctx.lineTo(hx + hw * 1.5, hy - hh * 1.9); ctx.lineTo(hx + hw * 1.1, hy - hh * 1.1); ctx.closePath(); ctx.fill();
     } else if (L.hat === 'topknot') {
       circle(hx, hy - hh * 1.15, hw * 0.34, L.hair || '#17171c', line, lw);
     } else if (L.hat === 'ears') {
@@ -1807,6 +1901,7 @@
     drawPillar();
     drawGround(all);
     drawItems();
+    drawShots();
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));
     for (const e of front) drawEntity(e);
@@ -1845,5 +1940,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, startGame, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, get shots() { return shots; }, startGame, openPick, choose };
 })();

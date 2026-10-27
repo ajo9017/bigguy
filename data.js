@@ -154,10 +154,10 @@ window.GAME_DATA = {
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
   gold: { perScore: 25, perWave: 8 },
 
-  // 캐릭터 10종. price 0 = 처음부터 사용 가능. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
+  // 캐릭터 10종(근접 7 + 원거리 3). price 0 = 처음부터 사용 가능. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
   // attack = 기본 공격 수치를 덮어씀(player.attack 기준), mass/speed = 몸무게/이동속도 배율.
   // look = 외형(skin 피부, coat 겉옷, trim 깃/띠, shorts 바지, sock 양말, hair 머리색, band 머리띠, glove 주먹 색, mark 등 글자)
-  //   + 장식: hat('toque' 요리사모, 'pirate' 해적모자, 'topknot' 상투, 'ears' 뾰족귀), mask(복면), beard(수염), fangs(송곳니), cape(망토), bald(민머리), shades(선글라스)
+  //   + 장식: hat('toque' 요리사모, 'pirate' 해적모자, 'topknot' 상투, 'ears' 뾰족귀, 'wizard' 마법사 모자, 'helmet' 철모, 'hood' 후드), mask(복면), beard(수염), fangs(송곳니), cape(망토), bald(민머리), shades(선글라스)
   characters: [
     { id: 'bigguy', name: '빅가이', price: 0, skill: null, desc: '축제를 사랑하는 근육질 아저씨. 균형 잡힌 기본 캐릭터.',
       look: {} },
@@ -173,19 +173,25 @@ window.GAME_DATA = {
     { id: 'general', name: '창술 장군', price: 200, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁다.',
       attack: { range: 128, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30 },
       look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
-    { id: 'dracula', name: '드라큘라', price: 250, skill: 'vampire', desc: '밤의 귀족. 때릴수록 피해%가 줄어든다.',
-      look: { skin: '#e9e4f0', coat: '#2a1a3d', trim: '#b5179e', shorts: '#1a1226', sock: '#1a1226', hair: '#0d0d12', band: '#b5179e', fangs: true, cape: '#8a0f2a', mark: '血' } },
     { id: 'wrestler', name: '프로 레슬러', price: 300, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리는 강타자.',
       attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.1, lunge: 150 },
       look: { skin: '#d08a5a', coat: '#ffcf33', trim: '#1b1b8f', shorts: '#1b1b8f', sock: '#ffcf33', hair: '#6b3a1a', band: '#d62828', shades: true, glove: '#d62828', mark: '王' } },
     { id: 'chef', name: '불꽃 요리사', price: 300, skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커진다.',
       attack: { range: 82, arc: 90, damage: 5, knockback: 400, duration: 0.24, active: [0.05, 0.14], comboWindow: 0.45, finisherMul: 2.2, lunge: 70 },
       look: { skin: '#e0a679', coat: '#ffffff', trim: '#d62828', shorts: '#3a3a4a', sock: '#ffffff', hair: '#5a3a1a', band: '#ffffff', hat: 'toque', mark: '肉' } },
-    { id: 'pirate', name: '해적 선장', price: 400, skill: 'bounty', desc: '보물에 눈이 먼 선장. 낙하 처치 점수가 높다.',
-      look: { skin: '#c68652', coat: '#7a1f2b', trim: '#e0b84a', shorts: '#2a2a3a', sock: '#5a3a1a', hair: '#1a1a22', band: '#1a1a22', hat: 'pirate', beard: '#1a1a22', mark: '財' } },
-    { id: 'monk', name: '떠돌이 승려', price: 500, skill: 'shield', desc: '고요한 마음의 결계. 주기적으로 첫 공격을 막아준다.',
-      attack: { range: 76, arc: 120, damage: 5, knockback: 380, duration: 0.22, active: [0.04, 0.13], comboWindow: 0.5, finisherMul: 2.2, lunge: 60 },
-      look: { skin: '#d9a273', coat: '#e8892b', trim: '#8a3d0f', shorts: '#8a3d0f', sock: '#e8892b', band: '#e8892b', bald: true, mark: '禪' } },
+    // 원거리 캐릭터: attack.ranged = 발사체 설정. 3타째(finisher)는 전용기술(fin)로 바뀐다. range = 발사체 최대 사거리
+    { id: 'wizard', name: '마법사', price: 350, skill: 'execute', speed: 0.95, desc: '마력 구슬을 날린다. 3타째 전용기술 [폭발 구슬]은 맞은 곳에서 터져 주변을 날려버린다.',
+      attack: { range: 400, arc: 20, damage: 5, knockback: 300, duration: 0.36, active: [0.1, 0.14], comboWindow: 0.5, finisherMul: 1.6, lunge: 0,
+        ranged: { speed: 480, radius: 14, color: '#b57cff', shape: 'orb', fin: { boom: 125, color: '#ff7ce8', speed: 420, radius: 22 } } },
+      look: { skin: '#e0b08a', coat: '#4b2e8a', trim: '#ffd84a', shorts: '#2a1a55', sock: '#2a1a55', hair: '#d8d8e8', band: '#ffd84a', beard: '#d8d8e8', hat: 'wizard', mark: '魔' } },
+    { id: 'soldier', name: '군인', price: 450, skill: 'rapid', desc: '소총을 연사한다. 3타째 전용기술 [일제 사격]은 총알 5발을 부채꼴로 쏟아낸다.',
+      attack: { range: 440, arc: 12, damage: 3, knockback: 230, duration: 0.17, active: [0.04, 0.06], comboWindow: 0.4, finisherMul: 1.3, lunge: 0,
+        ranged: { speed: 980, radius: 7, color: '#ffe37a', shape: 'bullet', fin: { count: 5, spread: 0.55, speed: 900 } } },
+      look: { skin: '#c98a5c', coat: '#4f6b3a', trim: '#33472a', shorts: '#3b4f2b', sock: '#2a2a22', hair: '#2a1a0f', band: '#33472a', hat: 'helmet', glove: '#2a2a22', mark: '兵' } },
+    { id: 'archer', name: '궁수', price: 500, skill: 'long_reach', desc: '화살을 멀리 쏜다. 3타째 전용기술 [관통 삼연사]는 적을 꿰뚫는 화살 3발을 쏜다.',
+      attack: { range: 520, arc: 12, damage: 5, knockback: 340, duration: 0.3, active: [0.08, 0.12], comboWindow: 0.45, finisherMul: 1.7, lunge: 0,
+        ranged: { speed: 820, radius: 9, color: '#f4e3b0', shape: 'arrow', fin: { count: 3, spread: 0.28, pierce: true, speed: 900 } } },
+      look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },
   ],
 
   // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브가 endlessScale 배율로 계속 늘어난다.
