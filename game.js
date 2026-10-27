@@ -1466,18 +1466,17 @@
     }
   }
 
-  // 캐릭터 아래 피해% 게이지 (꽉 차면 200%)
+  // 캐릭터 아래 체력 게이지 (피해 0%면 100% 꽉 참, 피해 200%면 0). 숫자는 게이지 안에 표시
   function drawGauge(e, px, py, r) {
-    const pct = Math.round(e.pct);
-    const w = Math.max(54, r * 2.4), h = 9, x = px - w / 2, y = py + 8;
-    const u = clamp(pct / 200, 0, 1);
-    const col = pct < 50 ? '#7dff9a' : pct < 100 ? '#ffd84a' : '#ff4a4a';
-    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
-    ctx.fillStyle = col; ctx.fillRect(x, y, w * u, h);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = '900 13px system-ui, sans-serif';
-    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(`${pct}%`, px, y + h + 3);
-    ctx.fillStyle = col; ctx.fillText(`${pct}%`, px, y + h + 3);
+    const hp = Math.round(clamp(1 - e.pct / 200, 0, 1) * 100);
+    const w = Math.max(54, r * 2.4), h = 11, x = px - w / 2, y = py + 6;
+    const col = hp > 50 ? '#7dff9a' : hp > 25 ? '#ffd84a' : '#ff4a4a';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    ctx.fillStyle = col; ctx.fillRect(x, y, w * hp / 100, h);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 10px system-ui, sans-serif';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeText(`${hp}%`, px, y + h / 2 + 0.5);
+    ctx.fillStyle = '#fff'; ctx.fillText(`${hp}%`, px, y + h / 2 + 0.5);
   }
 
   function drawEntity(e) {
