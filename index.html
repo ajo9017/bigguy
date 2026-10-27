@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>BIG GUY</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0e0f1a; overflow: hidden; color: #fff;
+    font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  canvas { display: block; touch-action: none; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 16px; text-align: center; background: rgba(8, 8, 16, .6); }
+  .hidden { display: none !important; }
+  h1 { margin: 0; font-size: clamp(44px, 10vw, 88px); letter-spacing: 4px; color: #ffd84a;
+    text-shadow: 0 4px 0 #b3401f, 0 10px 24px rgba(0, 0, 0, .6); }
+  .sub { font-size: 18px; opacity: .9; }
+  .help { font-size: 14px; line-height: 1.7; opacity: .7; }
+  button.big { font-size: 22px; font-weight: 800; padding: 14px 40px; border: 0; border-radius: 14px; cursor: pointer;
+    background: #ffd84a; color: #2a1a0a; box-shadow: 0 5px 0 #b3401f; }
+  button.big:active { transform: translateY(3px); box-shadow: 0 2px 0 #b3401f; }
+  #touch { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom));
+    display: flex; gap: 14px; align-items: flex-end; }
+  .tbtn { width: 84px; height: 84px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .5);
+    background: rgba(255, 255, 255, .12); color: #fff; font-size: 17px; font-weight: 800; touch-action: none; }
+  .tbtn.shove { width: 96px; height: 96px; margin-bottom: 44px; background: rgba(255, 120, 60, .28); }
+  .tbtn.on { background: rgba(255, 255, 255, .38); }
+  .tbtn.cd { opacity: .35; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="touch" class="hidden">
+  <button class="tbtn" id="btnAtk">공격</button>
+  <button class="tbtn shove" id="btnShv">밀치기</button>
+</div>
+
+<div id="title" class="overlay">
+  <h1>BIG GUY</h1>
+  <div class="sub">기둥 위에서 버텨라. 떨어지면 끝!</div>
+  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space · 밀치기 K / Shift<br>맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
+  <button class="big" id="btnStart">시작</button>
+</div>
+
+<div id="over" class="overlay hidden">
+  <h1>낙하!</h1>
+  <div class="sub" id="overStats"></div>
+  <button class="big" id="btnRetry">다시 하기</button>
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
