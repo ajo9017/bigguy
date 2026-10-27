@@ -196,7 +196,9 @@
   const abilSummary = () => Object.entries(player.abil).map(([id, l]) => `${ABIL[id].name} Lv${l}`).join(', ');
 
   function openPick() {
-    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < a.lv.length));
+    // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다
+    const ranged = !!player.attackDef.ranged;
+    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < a.lv.length && !(ranged && a.melee)));
     if (!pool.length) { startWave(game.wave + 1); return; }
     game.choices = pool.slice(0, 3);
     game.picking = true;
