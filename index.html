@@ -10,43 +10,140 @@
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   canvas { display: block; touch-action: none; }
   .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding: 16px; text-align: center; background: rgba(8, 8, 16, .6); }
+    gap: 14px; padding: 16px; text-align: center; background: rgba(8, 8, 16, .6); overflow-y: auto; box-sizing: border-box; }
   .hidden { display: none !important; }
   h1 { margin: 0; font-size: clamp(44px, 10vw, 88px); letter-spacing: 4px; color: #ffd84a;
     text-shadow: 0 4px 0 #b3401f, 0 10px 24px rgba(0, 0, 0, .6); }
-  .sub { font-size: 18px; opacity: .9; }
+  .sub { font-size: 18px; opacity: .95; line-height: 1.6; }
   .help { font-size: 14px; line-height: 1.7; opacity: .7; }
+  .dim { opacity: .7; font-size: 15px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  button { font-family: inherit; }
   button.big { font-size: 22px; font-weight: 800; padding: 14px 40px; border: 0; border-radius: 14px; cursor: pointer;
     background: #ffd84a; color: #2a1a0a; box-shadow: 0 5px 0 #b3401f; }
   button.big:active { transform: translateY(3px); box-shadow: 0 2px 0 #b3401f; }
-  #touch { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom));
-    display: flex; gap: 14px; align-items: flex-end; }
-  .tbtn { width: 84px; height: 84px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .5);
-    background: rgba(255, 255, 255, .12); color: #fff; font-size: 17px; font-weight: 800; touch-action: none; }
-  .tbtn.shove { width: 96px; height: 96px; margin-bottom: 44px; background: rgba(255, 120, 60, .28); }
-  .tbtn.on { background: rgba(255, 255, 255, .38); }
-  .tbtn.cd { opacity: .35; }
+  button.ghost { font-size: 17px; font-weight: 700; padding: 12px 26px; border-radius: 14px; cursor: pointer;
+    background: rgba(255, 255, 255, .1); color: #fff; border: 2px solid rgba(255, 255, 255, .35); }
+  .newrec { font-size: 26px; font-weight: 900; color: #ffd84a; margin-bottom: 6px; }
+  .abrow { font-size: 22px; margin-top: 8px; letter-spacing: 2px; }
+
+  /* 터치 공격 버튼 */
+  #touch { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
+  .tbtn { width: 104px; height: 104px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .55);
+    background: rgba(255, 120, 60, .3); color: #fff; font-size: 19px; font-weight: 800; touch-action: none; }
+  .tbtn.on { background: rgba(255, 255, 255, .4); }
+
+  /* 개선 요청 버튼 */
+  #btnChat { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+    height: 40px; padding: 0 14px; border-radius: 20px; border: 2px solid rgba(255, 255, 255, .35);
+    background: rgba(20, 20, 40, .7); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; z-index: 5; }
+
+  /* 능력 선택 */
+  #pick { background: rgba(8, 8, 16, .78); }
+  #pickTitle { font-size: 22px; font-weight: 900; color: #ffd84a; }
+  .cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+  .card { position: relative; width: min(250px, 86vw); padding: 16px 14px; border-radius: 16px; cursor: pointer;
+    background: #232541; color: #fff; border: 3px solid #4b4f86; text-align: center;
+    display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .card:hover, .card:active { border-color: #ffd84a; transform: translateY(-2px); }
+  .card .icon { font-size: 40px; line-height: 1.1; }
+  .card .cname { font-size: 20px; font-weight: 900; }
+  .card .clv { font-size: 13px; font-weight: 800; color: #ffd84a; }
+  .card .cdesc { font-size: 15px; opacity: .9; line-height: 1.4; }
+  .card .ckey { position: absolute; top: 8px; left: 10px; font-size: 12px; opacity: .5; }
+  @media (max-width: 600px) {
+    .card { flex-direction: row; text-align: left; gap: 12px; padding: 12px 14px; }
+    .card .icon { font-size: 34px; }
+    .card .ctext { display: flex; flex-direction: column; }
+  }
+
+  /* 채팅 */
+  #chat { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); background: rgba(8, 8, 16, .82); }
+  .chatBox { width: min(520px, 100%); background: #1d1f38; border-radius: 18px; padding: 16px; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 10px; text-align: left; border: 2px solid #3d4175; }
+  .chatHead { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 900; }
+  .chatHead button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, .1); color: #fff; font-size: 20px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 12px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .08); color: #fff; font-size: 14px; }
+  #chatText { width: 100%; box-sizing: border-box; min-height: 110px; padding: 12px; border-radius: 12px; border: 2px solid #4b4f86;
+    background: #12132a; color: #fff; font-size: 16px; font-family: inherit; resize: vertical; user-select: text; -webkit-user-select: text; }
+  .chatNote { font-size: 12px; opacity: .6; line-height: 1.5; }
+  #chatSend { align-self: stretch; }
+  .histTitle { font-size: 14px; font-weight: 800; opacity: .8; margin-top: 6px; }
+  .histItem { font-size: 13px; opacity: .7; padding: 6px 10px; background: rgba(255, 255, 255, .05); border-radius: 8px; word-break: break-all; }
+
+  /* 기록 */
+  .recBox { width: min(560px, 100%); background: #1d1f38; border-radius: 18px; padding: 18px; box-sizing: border-box; border: 2px solid #3d4175; }
+  .recBox h2 { margin: 0 0 12px; color: #ffd84a; }
+  .recGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .recGrid div { background: rgba(255, 255, 255, .06); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; }
+  .recGrid .wide { grid-column: span 2; }
+  .recGrid b { font-size: 22px; }
+  .recGrid span { font-size: 12px; opacity: .65; }
+  .recTable { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  .recTable th { opacity: .6; font-weight: 600; padding: 4px; white-space: nowrap; }
+  .recTable td { padding: 6px 4px; border-top: 1px solid rgba(255, 255, 255, .08); }
+  .recTable tr.best td { color: #ffd84a; font-weight: 800; }
+  .recTable td.ab { font-size: 14px; }
+  #records .ghost { margin-top: 14px; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 
+<button id="btnChat">💬 개선 요청</button>
+
 <div id="touch" class="hidden">
   <button class="tbtn" id="btnAtk">공격</button>
-  <button class="tbtn shove" id="btnShv">밀치기</button>
 </div>
 
 <div id="title" class="overlay">
   <h1>BIG GUY</h1>
   <div class="sub">기둥 위에서 버텨라. 떨어지면 끝!</div>
-  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space · 밀치기 K / Shift<br>맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
-  <button class="big" id="btnStart">시작</button>
+  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
+  <div class="row">
+    <button class="big" id="btnStart">시작</button>
+    <button class="ghost" id="btnRec">🏆 기록</button>
+  </div>
 </div>
 
 <div id="over" class="overlay hidden">
   <h1>낙하!</h1>
   <div class="sub" id="overStats"></div>
-  <button class="big" id="btnRetry">다시 하기</button>
+  <div class="row">
+    <button class="big" id="btnRetry">다시 하기</button>
+    <button class="ghost" id="btnRec2">🏆 기록</button>
+  </div>
+</div>
+
+<div id="pick" class="overlay hidden">
+  <div id="pickTitle"></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div id="records" class="overlay hidden">
+  <div class="recBox">
+    <h2>🏆 내 기록</h2>
+    <div id="recBody"></div>
+    <button class="ghost" id="recClose">닫기</button>
+  </div>
+</div>
+
+<div id="chat" class="overlay hidden">
+  <div class="chatBox">
+    <div class="chatHead">💬 게임 개선 요청 <button id="chatClose" aria-label="닫기">✕</button></div>
+    <div class="chips">
+      <button class="chip">적 추가</button>
+      <button class="chip">능력 추가</button>
+      <button class="chip">밸런스</button>
+      <button class="chip">그래픽</button>
+      <button class="chip">버그</button>
+    </div>
+    <textarea id="chatText" placeholder="예: 얼음을 던지는 적을 추가해줘"></textarea>
+    <button class="big" id="chatSend">보내기</button>
+    <div class="chatNote">보내기를 누르면 내용이 채워진 GitHub 요청 페이지가 열려요. 거기서 <b>Create / Submit</b>을 누르면 접수됩니다. (GitHub 로그인 필요)</div>
+    <div id="chatHist"></div>
+  </div>
 </div>
 
 <script src="data.js"></script>
