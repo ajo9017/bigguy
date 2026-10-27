@@ -506,10 +506,13 @@
 
   function waveSpec(i) {
     if (i < D.waves.length) return D.waves[i];
-    const last = D.waves[D.waves.length - 1];
+    // 보스는 반복하지 않는다: 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브를 늘려서 쓴다
+    let li = D.waves.length - 1;
+    while (li > 0 && Object.keys(D.waves[li]).some(k => D.enemies[k] && D.enemies[k].boss)) li--;
+    const last = D.waves[li];
     const mul = Math.pow(D.endlessScale, i - D.waves.length + 1);
     const spec = {};
-    for (const k in last) spec[k] = Math.round(last[k] * mul);
+    for (const k in last) if (!(D.enemies[k] && D.enemies[k].boss)) spec[k] = Math.round(last[k] * mul);
     return spec;
   }
 
@@ -519,10 +522,14 @@
     const spec = waveSpec(i);
     for (const k in spec) for (let n = 0; n < spec[k]; n++) game.queue.push(k);
     shuffle(game.queue);
+    // 보스는 맨 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
+    const isBoss = k => D.enemies[k] && D.enemies[k].boss;
+    const boss = game.queue.filter(isBoss);
+    game.queue = game.queue.filter(k => !isBoss(k)).concat(boss);
     game.spawnT = 1.2;
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
-    game.banner = { text: `WAVE ${i + 1}`, t: 2, max: 2 };
+    game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
     Sfx.play('wave');
   }
 
@@ -538,7 +545,9 @@
       if (d > 260) break;
     }
     const e = makeEntity('enemy', def, Math.cos(bestA) * rr, Math.sin(bestA) * rr);
-    e.type = type; e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
+    e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0;
+    if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
+    e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
     enemies.push(e);
   }
 
@@ -768,10 +777,9 @@
 
   const SHOUTS = ['으악!', '컥!', '아얏!', '크헉!', '끄악!'];
 
-  function hitPlayer(e, nx, ny) {
+  function hitPlayer(e, nx, ny, A = e.def.attack) {
     const p = player;
     if (p.inv > 0 || p.falling) return;
-    const A = e.def.attack;
     const dmg = A.damage * ab('tough', 1);
     p.pct += dmg;
     let power = A.force * (1 + p.pct / 80) / p.mass;
@@ -822,6 +830,18 @@
       case 'chase': {
         if (playerGone) break;
         e.face = Math.atan2(dy, dx);
+        const sl = e.def.slam, sm = e.def.summon;
+        if (sl && (e.slamT -= dt) <= 0) {
+          e.slamT = sl.every; e.state = 'slamwind'; e.st = 0;
+          ring(e.x, e.y, 2, '#ff6b6b', sl.radius * 0.35);
+          Sfx.play('windup');
+          break;
+        }
+        if (sm && (e.sumT -= dt) <= 0) {
+          e.sumT = sm.every;
+          if (enemies.filter(x => !x.falling).length < D.maxAlive + 3) for (let n = 0; n < sm.count; n++) spawnEnemy(sm.type);
+          text(e.x, e.y, e.r * 3, '부하 소환!', '#ff6b6b', 22);
+        }
         const reach = charger ? A.range : A.range + p.r;
         if (d <= reach && e.st > 0.3) {
           e.state = 'windup'; e.st = 0;
@@ -830,6 +850,19 @@
           e.x += Math.cos(e.face) * e.def.speed * dt;
           e.y += Math.sin(e.face) * e.def.speed * dt;
           e.walk += dt * 10;
+        }
+        break;
+      }
+      case 'slamwind': {
+        const sl = e.def.slam;
+        e.sqx = 1 + 0.15 * Math.sin(e.st * 20); e.sqy = 1 - 0.15 * Math.sin(e.st * 20);
+        if (e.st >= sl.windup) {
+          e.state = 'recover'; e.st = 0;
+          fx.shake = Math.max(fx.shake, 22);
+          ring(e.x, e.y, 2, '#ffffff', sl.radius * 0.35);
+          burst(e.x, e.y, 2, '#d8d2c0', 18, 360);
+          Sfx.play('fall');
+          if (!playerGone && p.z <= 20 && d <= sl.radius + p.r) hitPlayer(e, dx / (d || 1), dy / (d || 1), sl);
         }
         break;
       }
@@ -1349,7 +1382,25 @@
       ctx.beginPath(); ctx.moveTo(-r * 0.3, -r * 0.75); ctx.lineTo(fxv * r * 0.2, -r * 1.5); ctx.lineTo(r * 0.3, -r * 0.75); ctx.closePath();
       ctx.fill(); ctx.stroke();
     }
+    if (d.spikes) {
+      ctx.fillStyle = tint(e, '#f5efe0'); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = lw;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4 + 0.2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a - 0.2) * r * 0.9, Math.sin(a - 0.2) * r * 0.9);
+        ctx.lineTo(Math.cos(a) * r * 1.35, Math.sin(a) * r * 1.35);
+        ctx.lineTo(Math.cos(a + 0.2) * r * 0.9, Math.sin(a + 0.2) * r * 0.9);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
     circle(0, 0, r, tint(e, base), shade(d.color, -0.5), lw);
+    if (d.crown) {
+      ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = '#7a5a00'; ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.5, -r * 0.8); ctx.lineTo(-r * 0.5, -r * 1.3); ctx.lineTo(-r * 0.25, -r * 1.05);
+      ctx.lineTo(0, -r * 1.4); ctx.lineTo(r * 0.25, -r * 1.05); ctx.lineTo(r * 0.5, -r * 1.3); ctx.lineTo(r * 0.5, -r * 0.8);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
 
     if (fyv > -0.55) {
       const ex = fxv * r * 0.35, ey = -r * 0.15 + fyv * r * 0.1;
@@ -1393,6 +1444,20 @@
     }
   }
 
+  // 캐릭터 아래 피해% 게이지 (꽉 차면 200%)
+  function drawGauge(e, px, py, r) {
+    const pct = Math.round(e.pct);
+    const w = Math.max(54, r * 2.4), h = 9, x = px - w / 2, y = py + 8;
+    const u = clamp(pct / 200, 0, 1);
+    const col = pct < 50 ? '#7dff9a' : pct < 100 ? '#ffd84a' : '#ff4a4a';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = col; ctx.fillRect(x, y, w * u, h);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = '900 13px system-ui, sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(`${pct}%`, px, y + h + 3);
+    ctx.fillStyle = col; ctx.fillText(`${pct}%`, px, y + h + 3);
+  }
+
   function drawEntity(e) {
     const r = e.r * S;
     const px = sx(e.x), py = sy(e.y, e.z);
@@ -1404,9 +1469,18 @@
     if (e.kind === 'player') drawPlayer(e, r); else drawEnemy(e, r);
     ctx.restore();
 
+    if (e.kind === 'enemy' && e.state === 'slamwind' && !e.falling) {
+      const rr = e.def.slam.radius * S;
+      ctx.strokeStyle = `rgba(255,70,70,${0.5 + 0.4 * Math.sin(time * 20)})`; ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(255,70,70,0.15)';
+      ctx.beginPath(); ctx.ellipse(px, sy(e.y, 0), rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    if (e.kind === 'player' && !e.falling) drawGauge(e, px, py, r);
+
     if (e.kind === 'enemy' && !e.falling && e.state !== 'spawn') {
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      if (e.state === 'windup') {
+      if (e.state === 'windup' || e.state === 'slamwind') {
         ctx.font = `900 ${Math.max(18, r * 1.3)}px system-ui, sans-serif`;
         ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText('!', px, py - r * 2.3);
         ctx.fillStyle = '#ff3b3b'; ctx.fillText('!', px, py - r * 2.3);
@@ -1490,19 +1564,6 @@
       ix += 34;
       if (ix > maxX) { ix = 16; iy += 28; }
     }
-
-    // 피해%
-    const pct = Math.round(player.pct);
-    const col = pct < 50 ? '#ffffff' : pct < 100 ? '#ffd84a' : '#ff4a4a';
-    const jx = player.hurt > 0 ? rand(-4, 4) : 0, jy = player.hurt > 0 ? rand(-4, 4) : 0;
-    ctx.textAlign = 'center';
-    ctx.font = '600 13px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillText('피해', W / 2, 10);
-    ctx.font = `900 ${player.hurt > 0 ? 46 : 38}px system-ui, sans-serif`;
-    ctx.lineWidth = 6; ctx.strokeStyle = '#000';
-    ctx.strokeText(`${pct}%`, W / 2 + jx, 26 + jy);
-    ctx.fillStyle = col; ctx.fillText(`${pct}%`, W / 2 + jx, 26 + jy);
 
     if (game.banner) {
       const b = game.banner, age = b.max - b.t;

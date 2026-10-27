@@ -19,6 +19,7 @@ window.GAME_DATA = {
   },
 
   // behavior: 'walker' = 다가와서 휘두르기, 'charger' = 멀리서 조준 후 돌진
+  // 그리기 옵션: horn(뿔), teeth(송곳니), spikes(가시), crown(왕관)
   enemies: {
     grunt: {
       name: '졸개', color: '#7bc96f', radius: 20, mass: 1, speed: 110, behavior: 'walker', score: 100,
@@ -31,6 +32,82 @@ window.GAME_DATA = {
     brute: {
       name: '덩치', color: '#9a6bd6', radius: 32, mass: 3, speed: 65, behavior: 'walker', score: 300, teeth: true,
       attack: { range: 62, windup: 0.8, recover: 1.0, damage: 18, force: 900 },
+    },
+
+    // 새 몬스터: 웨이브가 진행되면서 차례로 등장한다 (waves 참고)
+    runner: {
+      name: '날쌘이', color: '#6fd6c9', radius: 16, mass: 0.7, speed: 190, behavior: 'walker', score: 120,
+      attack: { range: 38, windup: 0.3, recover: 0.5, damage: 6, force: 440 },
+    },
+    tank: {
+      name: '철갑병', color: '#8a96a8', radius: 27, mass: 4, speed: 55, behavior: 'walker', score: 350,
+      attack: { range: 56, windup: 0.9, recover: 1.1, damage: 14, force: 800 },
+    },
+    rusher: {
+      name: '번개 돌격병', color: '#f2d23a', radius: 20, mass: 0.9, speed: 100, behavior: 'charger', score: 200, horn: true,
+      attack: { range: 260, windup: 0.45, dashSpeed: 860, dashTime: 0.45, recover: 0.8, damage: 10, force: 700 },
+    },
+    spiky: {
+      name: '가시돌이', color: '#d6556b', radius: 24, mass: 1.6, speed: 85, behavior: 'walker', score: 260, spikes: true,
+      attack: { range: 48, windup: 0.5, recover: 0.7, damage: 11, force: 640 },
+    },
+    rhino: {
+      name: '코뿔소', color: '#9b8f7a', radius: 30, mass: 3.4, speed: 80, behavior: 'charger', score: 400, horn: true,
+      attack: { range: 280, windup: 0.9, dashSpeed: 700, dashTime: 0.6, recover: 1.1, damage: 16, force: 1000 },
+    },
+    ninja: {
+      name: '닌자', color: '#4a4a66', radius: 17, mass: 0.8, speed: 150, behavior: 'charger', score: 280,
+      attack: { range: 240, windup: 0.4, dashSpeed: 780, dashTime: 0.4, recover: 0.6, damage: 9, force: 640 },
+    },
+    golem: {
+      name: '골렘', color: '#b08a5a', radius: 38, mass: 6, speed: 45, behavior: 'walker', score: 600, teeth: true,
+      attack: { range: 70, windup: 1.0, recover: 1.2, damage: 22, force: 1100 },
+    },
+    hornet: {
+      name: '말벌', color: '#ffc21f', radius: 13, mass: 0.5, speed: 220, behavior: 'walker', score: 150,
+      attack: { range: 34, windup: 0.25, recover: 0.4, damage: 5, force: 400 },
+    },
+    ogre: {
+      name: '오우거', color: '#5f9c4a', radius: 34, mass: 3.6, speed: 75, behavior: 'walker', score: 650, teeth: true,
+      attack: { range: 66, windup: 0.7, recover: 0.9, damage: 20, force: 1000 },
+    },
+    reaper: {
+      name: '저승사자', color: '#7a4fa8', radius: 22, mass: 1.3, speed: 110, behavior: 'charger', score: 700, horn: true,
+      attack: { range: 320, windup: 0.5, dashSpeed: 900, dashTime: 0.55, recover: 0.7, damage: 18, force: 950 },
+    },
+
+    // 보스: 5웨이브마다 하나씩, 매번 다른 보스가 나온다 (반복 없음). boss: true
+    // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
+    boss_king: {
+      name: '왕졸개', color: '#4fae3f', radius: 46, mass: 7, speed: 70, behavior: 'walker', score: 2000, boss: true, crown: true,
+      attack: { range: 80, windup: 0.8, recover: 0.9, damage: 18, force: 1000 },
+      summon: { every: 7, type: 'grunt', count: 2 },
+    },
+    boss_rhino: {
+      name: '철벽 대왕 코뿔소', color: '#7d7d8c', radius: 50, mass: 9, speed: 70, behavior: 'charger', score: 3000, boss: true, horn: true,
+      attack: { range: 340, windup: 0.9, dashSpeed: 820, dashTime: 0.8, recover: 1.0, damage: 22, force: 1250 },
+    },
+    boss_quake: {
+      name: '지진 거인', color: '#b5733a', radius: 54, mass: 10, speed: 55, behavior: 'walker', score: 4000, boss: true, teeth: true,
+      attack: { range: 88, windup: 0.9, recover: 1.0, damage: 22, force: 1200 },
+      slam: { every: 6, radius: 190, windup: 1.0, damage: 20, force: 1100 },
+    },
+    boss_storm: {
+      name: '질풍 닌자왕', color: '#33334f', radius: 36, mass: 5, speed: 130, behavior: 'charger', score: 5000, boss: true, crown: true,
+      attack: { range: 300, windup: 0.5, dashSpeed: 1000, dashTime: 0.6, recover: 0.5, damage: 16, force: 1100 },
+      summon: { every: 8, type: 'ninja', count: 2 },
+    },
+    boss_ogre: {
+      name: '대왕 오우거', color: '#3f8a3a', radius: 56, mass: 11, speed: 70, behavior: 'walker', score: 6000, boss: true, teeth: true, crown: true,
+      attack: { range: 92, windup: 0.7, recover: 0.8, damage: 25, force: 1300 },
+      slam: { every: 5, radius: 210, windup: 0.9, damage: 22, force: 1200 },
+      summon: { every: 10, type: 'ogre', count: 1 },
+    },
+    boss_reaper: {
+      name: '기둥의 파괴신', color: '#8a2fb0', radius: 52, mass: 12, speed: 90, behavior: 'charger', score: 9000, boss: true, horn: true, crown: true, spikes: true,
+      attack: { range: 360, windup: 0.6, dashSpeed: 1050, dashTime: 0.7, recover: 0.7, damage: 28, force: 1450 },
+      slam: { every: 5, radius: 230, windup: 0.8, damage: 25, force: 1300 },
+      summon: { every: 9, type: 'reaper', count: 1 },
     },
   },
 
@@ -72,16 +149,41 @@ window.GAME_DATA = {
     { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.5, 1, 1.5],     desc: v => `1초마다 피해% -${v}` },
   ],
 
-  // 웨이브별 등장 마릿수. 마지막 웨이브 이후에는 endlessScale 배율로 계속 늘어난다.
+  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브가 endlessScale 배율로 계속 늘어난다.
   waves: [
-    { grunt: 3 },
-    { grunt: 5 },
-    { grunt: 4, charger: 2 },
-    { grunt: 5, charger: 2, brute: 1 },
-    { grunt: 6, charger: 3, brute: 2 },
+    { grunt: 3 },                                              // 1
+    { grunt: 5 },                                              // 2
+    { grunt: 4, charger: 2, runner: 2 },                       // 3 날쌘이 등장
+    { grunt: 5, charger: 2, brute: 1, runner: 2 },             // 4
+    { boss_king: 1, grunt: 3 },                                // 5 보스: 왕졸개
+    { grunt: 4, charger: 3, tank: 2 },                         // 6 철갑병 등장
+    { grunt: 5, brute: 2, tank: 2, runner: 3 },                // 7
+    { charger: 3, rusher: 3, brute: 2, runner: 2 },            // 8 번개 돌격병 등장
+    { grunt: 6, rusher: 3, tank: 2, brute: 2 },                // 9
+    { boss_rhino: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
+    { grunt: 5, spiky: 4, tank: 2, rusher: 3 },                // 11 가시돌이 등장
+    { charger: 4, brute: 3, spiky: 3, runner: 4 },             // 12
+    { rhino: 2, spiky: 3, tank: 3, grunt: 5 },                 // 13 코뿔소 등장
+    { rhino: 2, rusher: 4, brute: 3, spiky: 3 },               // 14
+    { boss_quake: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
+    { ninja: 4, rhino: 2, tank: 3, spiky: 3 },                 // 16 닌자 등장
+    { ninja: 5, rusher: 4, brute: 3, spiky: 3 },               // 17
+    { golem: 2, ninja: 4, rhino: 2, tank: 3 },                 // 18 골렘 등장
+    { golem: 2, ninja: 4, rusher: 4, spiky: 4, rhino: 2 },     // 19
+    { boss_storm: 1, ninja: 4, rusher: 4, runner: 4 },         // 20 보스: 질풍 닌자왕
+    { hornet: 8, golem: 2, rhino: 3, spiky: 4 },               // 21 말벌 등장
+    { hornet: 8, ninja: 5, tank: 4, rhino: 3 },                // 22
+    { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4 },    // 23
+    { ogre: 3, hornet: 6, golem: 2, ninja: 5 },                // 24 오우거 등장
+    { boss_ogre: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
+    { ogre: 4, golem: 3, rhino: 3, ninja: 5, hornet: 5 },      // 26
+    { reaper: 3, ogre: 3, golem: 3, spiky: 5 },                // 27 저승사자 등장
+    { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6 },     // 28
+    { reaper: 4, ogre: 4, golem: 4, tank: 5, rusher: 5 },      // 29
+    { boss_reaper: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
   ],
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
-  meat: { every: 3, delay: 5, heal: 40, radius: 20 },
+  meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
   endlessScale: 1.25,
   spawnInterval: 0.9,
