@@ -242,18 +242,46 @@
     ui.btnChat.classList.remove('hidden');
     ui.chatText.blur();
   }
+  // 요청 현황: 공개 GitHub API로 [요청] 이슈 상태를 읽는다 (로그인 불필요). 실패하면 이 기기에서 보낸 목록만 보여준다
+  function reqStatus(i) {
+    const labels = i.labels.map(l => l.name);
+    if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : ['done', '✅ 반영됨'];
+    if (labels.includes('작업중')) return ['work', '🔧 작업 중'];
+    if (labels.includes('일부 반영')) return ['part', '🟡 일부 반영'];
+    return ['wait', '⏳ 대기 중'];
+  }
   function renderChatHist() {
-    const list = storage.get('bigguy.requests', []);
-    ui.chatHist.innerHTML = '';
-    if (!list.length) return;
-    const h = document.createElement('div');
-    h.className = 'histTitle'; h.textContent = '내가 보낸 요청';
-    ui.chatHist.appendChild(h);
-    for (const r of list) {
-      const d = document.createElement('div');
-      d.className = 'histItem'; d.textContent = r.text;
-      ui.chatHist.appendChild(d);
-    }
+    ui.chatHist.innerHTML = '<div class="histTitle">요청 현황</div><div class="chatNote">불러오는 중...</div>';
+    fetch(`https://api.github.com/repos/${D.feedback.repo}/issues?state=all&per_page=40`)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(list => {
+        const reqs = list.filter(i => !i.pull_request && i.title.startsWith('[요청]'));
+        ui.chatHist.innerHTML = '<div class="histTitle">요청 현황</div>';
+        if (!reqs.length) ui.chatHist.innerHTML += '<div class="chatNote">아직 접수된 요청이 없어요</div>';
+        for (const i of reqs) {
+          const [cls, label] = reqStatus(i);
+          const a = document.createElement('a');
+          a.className = 'reqItem'; a.href = i.html_url; a.target = '_blank'; a.rel = 'noopener';
+          a.innerHTML = `<span class="badge ${cls}">${label}</span><span class="rt"></span><span class="rn">#${i.number}</span>`;
+          a.querySelector('.rt').textContent = i.title.replace(/^\[요청\]\s*/, '');
+          ui.chatHist.appendChild(a);
+        }
+        if (reqs.length) {
+          const n = document.createElement('div');
+          n.className = 'chatNote';
+          n.textContent = `주인(${D.feedback.repo.split('/')[0]})의 요청은 자동으로 반영돼요. 다른 사람의 요청은 대기 중으로 남고, 주인이 그 이슈에 '반영' 댓글을 달면 작업을 시작해요.`;
+          ui.chatHist.appendChild(n);
+        }
+      })
+      .catch(() => {
+        const list = storage.get('bigguy.requests', []);
+        ui.chatHist.innerHTML = '<div class="histTitle">내가 보낸 요청</div><div class="chatNote">요청 현황을 불러오지 못했어요</div>';
+        for (const r of list) {
+          const d = document.createElement('div');
+          d.className = 'histItem'; d.textContent = r.text;
+          ui.chatHist.appendChild(d);
+        }
+      });
   }
   function sendRequest() {
     const text = ui.chatText.value.trim();
