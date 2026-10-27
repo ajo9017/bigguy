@@ -170,7 +170,7 @@
   $('btnStart').addEventListener('click', () => { Sfx.unlock(); startGame(); });
   $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(); });
   for (const id of ['btnRec', 'btnRec2']) $(id).addEventListener('click', () => openRecords('rank'));
-  for (const tab of document.querySelectorAll('#records .tab')) tab.addEventListener('click', () => openRecords(tab.dataset.tab));
+  for (const tab of document.querySelectorAll('#records .tab[data-tab]')) tab.addEventListener('click', () => openRecords(tab.dataset.tab));
   for (const b of document.querySelectorAll('#rankTabs .sub')) b.addEventListener('click', () => { rankPeriod = b.dataset.period; loadRanking(); });
   $('recClose').addEventListener('click', () => ui.records.classList.add('hidden'));
   if (isTouch) ui.help.innerHTML = '왼쪽 화면 드래그로 이동 · 오른쪽 버튼으로 공격<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다';
@@ -419,7 +419,7 @@
   }
 
   function openRecords(tab) {
-    for (const t of document.querySelectorAll('#records .tab')) t.classList.toggle('on', t.dataset.tab === tab);
+    for (const t of document.querySelectorAll('#records .tab[data-tab]')) t.classList.toggle('on', t.dataset.tab === tab);
     ui.rankBody.classList.toggle('hidden', tab !== 'rank');
     ui.recBody.classList.toggle('hidden', tab !== 'mine');
     ui.records.classList.remove('hidden');
