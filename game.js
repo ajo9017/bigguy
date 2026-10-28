@@ -285,7 +285,7 @@
   // 요청 현황: 공개 GitHub API로 [요청] 이슈 상태를 읽는다 (로그인 불필요). 실패하면 이 기기에서 보낸 목록만 보여준다
   function reqStatus(i) {
     const labels = i.labels.map(l => l.name);
-    if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : ['done', '✅ 반영됨'];
+    if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : (Date.now() - new Date(i.closed_at).getTime() < 5 * 60000 ? ['work', '🚀 배포 중 (곧 적용)'] : ['done', '✅ 적용 완료']);
     if (labels.includes('작업중')) return ['work', '🔧 작업 중'];
     if (labels.includes('반영대기')) return ['work', '🕒 반영 예정'];
     if (labels.includes('일부 반영')) return ['part', '🟡 일부 반영'];
@@ -310,7 +310,7 @@
         if (reqs.length) {
           const n = document.createElement('div');
           n.className = 'chatNote';
-          n.textContent = `주인(${D.feedback.repo.split('/')[0]})의 요청은 자동으로 반영돼요. 다른 사람의 요청은 대기 중으로 남고, 주인이 그 이슈에 '반영' 댓글을 달면 작업을 시작해요.`;
+          n.textContent = `주인(${D.feedback.repo.split('/')[0]})의 요청은 자동으로 반영돼요. 다른 사람의 요청은 대기 중으로 남고, 주인이 그 이슈에 '반영' 댓글을 달면 작업을 시작해요. 코드가 끝나도 배포에 1~2분 걸려서, '적용 완료'가 뜬 요청부터 게임에 실제로 들어가 있어요(안 보이면 새로고침).`;
           ui.chatHist.appendChild(n);
         }
       })
