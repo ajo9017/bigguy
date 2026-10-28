@@ -836,6 +836,7 @@
   function useItem(it) {
     const p = player, def = it.def;
     text(p.x, p.y, p.r * 3.4, `${def.icon} ${def.name}`, '#ffffff', 22);
+    if (def.id !== 'gem') text(p.x, p.y, p.r * 4.4, def.desc, '#ffe9a8', 17);
     switch (def.id) {
       case 'bomb':
         pushAround(p, def.range, 10, def.force, true);
