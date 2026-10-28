@@ -572,7 +572,7 @@
   function attackText(ch) {
     if (!ch.attack) return '';
     const b = D.player.attack, a = ch.attack, t = [];
-    if (a.ranged) return '🏹 원거리 공격 · 3타째 전용기술';
+    if (a.ranged) return '🏹 1~2타 근접 · 3타째 원거리 전용기술';
     if (a.range && a.range !== b.range) t.push(a.range > b.range ? '사거리 길다' : '사거리 짧다');
     if (a.duration && a.duration !== b.duration) t.push(a.duration < b.duration ? '공격 빠름' : '공격 느림');
     if (a.knockback && a.knockback > b.knockback) t.push('넉백 강함');
@@ -936,9 +936,9 @@
     if (p.combo > 3) p.combo = 1;
     p.comboT = a.comboWindow + a.duration;
     const finisher = p.combo === 3;
-    const spin = finisher && lvl('cyclone') > 0;
-    const ranged = !!a.ranged;
-    const range = a.range * ab('long_reach', 1) * (spin && !ranged ? ab('cyclone') : 1) * (ranged ? 1 : p.grow);
+    const spin = finisher && !a.ranged && lvl('cyclone') > 0;
+    const ranged = finisher && !!a.ranged;
+    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * p.grow;
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0)) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
