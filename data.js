@@ -229,6 +229,43 @@ window.GAME_DATA = {
       attack: { range: 330, windup: 0.7, dashSpeed: 900, dashTime: 0.7, recover: 0.8, damage: 26, force: 1300 },
       zone: { every: 1.4, radius: 100, windup: 1.0, damage: 20, force: 1150, count: 3 },
     },
+    // 상급 보스: 후반 스테이지에만 나오는 더 어려운 보스
+    boss_titan: {
+      stages: [20, 30],
+      name: '강철 거신', color: '#5d6b7a', radius: 60, mass: 16, speed: 75, behavior: 'walker', score: 8000, boss: true, teeth: true, crown: true,
+      attack: { range: 100, windup: 0.6, recover: 0.7, damage: 34, force: 1680 },
+      slam: { every: 3.2, radius: 240, windup: 0.8, damage: 30, force: 1500 },
+      summon: { every: 7, type: 'golem', count: 2 },
+    },
+    boss_blade: {
+      stages: [20, 30],
+      name: '칼날 폭풍왕', color: '#2f6f8f', radius: 38, mass: 8, speed: 150, behavior: 'charger', score: 8500, boss: true, crown: true, spikes: true,
+      attack: { range: 340, windup: 0.4, dashSpeed: 1150, dashTime: 0.6, recover: 0.4, damage: 24, force: 1450 },
+      summon: { every: 5, type: 'ninja', count: 3 },
+      zone: { every: 2.2, radius: 100, windup: 0.9, damage: 22, force: 1250, count: 3 },
+    },
+    boss_volcano: {
+      stages: [25, 30],
+      name: '화산 폭군', color: '#b8321a', radius: 56, mass: 15, speed: 85, behavior: 'charger', score: 9500, boss: true, horn: true, spikes: true,
+      attack: { range: 360, windup: 0.55, dashSpeed: 1100, dashTime: 0.7, recover: 0.6, damage: 34, force: 1700 },
+      slam: { every: 3.5, radius: 240, windup: 0.8, damage: 30, force: 1500 },
+      zone: { every: 1.6, radius: 110, windup: 0.9, damage: 24, force: 1300, count: 4 },
+    },
+    boss_void: {
+      stages: [25, 30],
+      name: '심연의 군주', color: '#3b2a6b', radius: 48, mass: 12, speed: 100, behavior: 'walker', score: 10000, boss: true, crown: true, spikes: true,
+      attack: { range: 90, windup: 0.5, recover: 0.6, damage: 30, force: 1600 },
+      zone: { every: 1.3, radius: 105, windup: 0.9, damage: 24, force: 1300, count: 4 },
+      summon: { every: 6, type: 'mage', count: 2 },
+    },
+    boss_doom: {
+      stages: [30, 30],
+      name: '종말의 대왕', color: '#1c1c24', radius: 62, mass: 18, speed: 100, behavior: 'charger', score: 14000, boss: true, horn: true, crown: true, teeth: true, spikes: true,
+      attack: { range: 380, windup: 0.5, dashSpeed: 1200, dashTime: 0.7, recover: 0.5, damage: 38, force: 1850 },
+      slam: { every: 3, radius: 260, windup: 0.75, damage: 34, force: 1650 },
+      summon: { every: 6, type: 'reaper', count: 1 },
+      zone: { every: 1.8, radius: 115, windup: 0.85, damage: 26, force: 1400, count: 4 },
+    },
   },
 
   // 스테이지 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
