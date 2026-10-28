@@ -132,7 +132,7 @@
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [];
+  let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [], meteors = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -1038,6 +1038,22 @@
     }
   }
 
+  // 운석: 자리 표시 -> 낙하 -> 착지(폭발과 피해)
+  function updateMeteors(dt) {
+    for (const m of meteors) {
+      m.t += dt;
+      if (m.hit || m.t < m.warn + m.fall) continue;
+      m.hit = true;
+      const e = enemies.find(o => activeEnemy(o) && o.z > -1 && Math.hypot(o.x - m.x, o.y - m.y) < 40);
+      pushAround({ x: m.x, y: m.y, r: 0 }, 80, 8, 650, true, new Set(e ? [e] : []));
+      if (e) hitEnemy(e, Math.random() - 0.5, Math.random() - 0.5, 8, 650, true);
+      burst(m.x, m.y, 10, '#ff8a3c', 30, 460);
+      ring(m.x, m.y, 10, '#ff8a3c', 90);
+      fx.shake = Math.max(fx.shake, 12);
+    }
+    meteors = meteors.filter(m => !m.hit);
+  }
+
   function updateShots(dt) {
     for (const s of shots) {
       const step = Math.hypot(s.vx, s.vy) * dt;
@@ -1161,13 +1177,8 @@
     // 운석 소환: 가까운 적부터 위에서 떨어진다
     if (specialReady(p, 'meteor', dt)) {
       const list = enemies.filter(e => activeEnemy(e) && e.z > -1).sort(() => Math.random() - 0.5).slice(0, ab('meteor'));
-      for (const e of list) {
-        pushAround(e, 80, 8, 650, true, new Set([e]));
-        hitEnemy(e, Math.random() - 0.5, Math.random() - 0.5, 8, 650, true);
-        burst(e.x, e.y, 30, '#ff8a3c', 18, 460);
-        ring(e.x, e.y, 10, '#ff8a3c', 90);
-      }
-      if (list.length) { text(p.x, p.y, p.r * 3, '운석!', '#ff8a3c', 24); fx.shake = Math.max(fx.shake, 12); Sfx.play('fall'); }
+      for (const e of list) meteors.push({ x: e.x, y: e.y, t: 0, warn: 0.7, fall: 0.35, hit: false });
+      if (list.length) { text(p.x, p.y, p.r * 3, '운석!', '#ff8a3c', 24); Sfx.play('fall'); }
     }
     // 시간 정지: 모든 적이 잠깐 얼어붙는다
     if (specialReady(p, 'time_stop', dt)) {
@@ -1899,6 +1910,7 @@
     enemies = enemies.filter(e => !e.dead);
     updateItems(dt);
     updateShots(dt);
+    updateMeteors(dt);
     updateEnemyShots(dt);
     updateFireworks(dt);
     updateParticles(dt);
@@ -2053,6 +2065,30 @@
       const g = ctx.createRadialGradient(px, py, r * 0.1, px, py, r * 1.5);
       g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, s.color); g.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawMeteors() {
+    for (const m of meteors) {
+      const px = sx(m.x), gy = sy(m.y, 0), rr = 70 * S;
+      if (m.t < m.warn) {
+        const u = m.t / m.warn;
+        ctx.fillStyle = `rgba(255,90,40,${0.12 + 0.2 * u})`;
+        ctx.strokeStyle = `rgba(255,140,60,${0.6 + 0.3 * Math.sin(time * 25)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(px, gy, rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(px, gy, rr * u, rr * u * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        const u = clamp((m.t - m.warn) / m.fall, 0, 1), h = (1 - u) * 520;
+        ctx.fillStyle = 'rgba(255,90,40,0.3)';
+        ctx.beginPath(); ctx.ellipse(px, gy, rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill();
+        const py = sy(m.y, h), r = 26 * S;
+        ctx.strokeStyle = 'rgba(255,160,60,0.55)'; ctx.lineWidth = r * 1.2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px - 30 * S * (1 - u), py - 150 * S); ctx.lineTo(px, py); ctx.stroke();
+        const g = ctx.createRadialGradient(px, py, r * 0.2, px, py, r * 1.8);
+        g.addColorStop(0, '#fff2c0'); g.addColorStop(0.4, '#ff8a3c'); g.addColorStop(1, 'rgba(255,80,20,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4a3a30'; ctx.beginPath(); ctx.arc(px, py, r * 0.8, 0, Math.PI * 2); ctx.fill();
+      }
     }
   }
 
@@ -2810,6 +2846,7 @@
     drawItems();
     drawEnemyShots();
     drawShots();
+    drawMeteors();
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));
     for (const e of front) drawEntity(e);
