@@ -746,7 +746,8 @@
       if (d > 260) break;
     }
     const e = makeEntity('enemy', def, def.boss ? 0 : Math.cos(bestA) * rr, def.boss ? 0 : Math.sin(bestA) * rr);
-    e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0; e.zoneT = def.zone ? def.zone.every : 0;
+    e.type = type; e.skillT = 0; const fs = k => def[k] ? (def.boss ? Math.min(3, def[k].every) : def[k].every) : 0; // 보스는 착지 3초 뒤 특수기술을 바로 쓴다
+    e.slamT = fs('slam'); e.sumT = fs('summon'); e.zoneT = fs('zone');
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = def.boss ? 520 : -80; e.face = def.boss ? Math.atan2(player.y, player.x) : bestA + Math.PI;
     if (def.boss) e.drop = true;
