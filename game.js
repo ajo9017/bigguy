@@ -860,7 +860,7 @@
           e.state = 'stun'; e.st = 0; e.hitstun = e.frozen; e.vx = e.vy = 0;
           burst(e.x, e.y, e.r, '#bfe8ff', 8, 220);
         }
-        fx.shake = Math.max(fx.shake, 8);
+        fx.shake = Math.max(fx.shake, 8 * 0.8);
         break;
       case 'gem': {
         const pts = def.score * (game.wave + 1);
@@ -1014,7 +1014,7 @@
           ring(s.x, s.y, 6, s.color, s.boom / 3);
           burst(s.x, s.y, 8, s.color, 14, 420);
           pushAround({ x: s.x, y: s.y }, s.boom, 3, 520, true, s.hit);
-          fx.shake = Math.max(fx.shake, 12);
+          fx.shake = Math.max(fx.shake, 12 * 0.8);
           s.dead = true;
         } else if (!s.pierce) s.dead = true;
       }
@@ -1092,7 +1092,7 @@
         if (p.giant <= 0) p.giantT = 0;
       } else if ((p.giantT += dt) >= G.every) {
         p.giant = ab('giant');
-        fx.shake = Math.max(fx.shake, 16);
+        fx.shake = Math.max(fx.shake, 16 * 0.8);
         ring(p.x, p.y, p.r, '#ffd84a', p.r * 2);
         text(p.x, p.y, p.r * 4, '거대화!', '#ffd84a', 30);
         Sfx.play('roar');
@@ -1133,7 +1133,7 @@
       if (p.dashT <= 0) {
         p.vx *= 0.3; p.vy *= 0.3;
         const q = ab('dash_quake', 0);
-        if (q) { pushAround(p, q, 3, 500, true); fx.shake = Math.max(fx.shake, 14); }
+        if (q) { pushAround(p, q, 3, 500, true); fx.shake = Math.max(fx.shake, 14 * 0.8); }
       }
       return;
     }
@@ -1196,7 +1196,7 @@
     if (!a.ranged && a.finisher && def.finQuake && !a.quaked && a.t > def.active[1]) {
       a.quaked = true;
       pushAround(p, def.finQuake, 3, 380, true, a.hit);
-      fx.shake = Math.max(fx.shake, 10);
+      fx.shake = Math.max(fx.shake, 10 * 0.8);
     }
     if (a.t >= def.duration) p.atk = null;
   }
@@ -1236,7 +1236,7 @@
     // 타격감: 퍼센트가 높을수록 멈춤과 흔들림이 커지고, 모든 타격에 충격 링과 불꽃이 번진다
     const big = Math.min(1, power / 900);
     fx.hitstop = Math.max(fx.hitstop, (heavy ? 0.09 : 0.055) + big * 0.04);
-    fx.shake = Math.max(fx.shake, (heavy ? 10 : 6) + big * 6);
+    fx.shake = Math.max(fx.shake, ((heavy ? 10 : 6) + big * 6) * (heavy ? 0.8 : 0.2));
     if (heavy) fx.zoom = Math.max(fx.zoom, 0.03 + big * 0.03);
     e.sqx = 1.5; e.sqy = 0.62;
     burst(e.x, e.y, e.r, heavy ? '#ffb347' : '#ffffff', heavy ? 16 : 10, heavy ? 420 : 300);
