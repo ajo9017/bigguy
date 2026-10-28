@@ -238,7 +238,7 @@
   function openPick() {
     // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id));
+    const pool = D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id) && !(a.not && a.not.includes(player.ch.id)));
     if (!pool.length) { startWave(game.wave + 1); return; }
     // 전용 능력은 뽑힐 확률이 D.onlyWeight배(가중치 추첨, 중복 없이 3개)
     const picked = [];
