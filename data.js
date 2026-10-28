@@ -149,7 +149,7 @@ window.GAME_DATA = {
     { id: 'bounty',      icon: '💰', name: '현상금',      lv: [1.25, 1.5, 2.0],  desc: v => `낙하 처치 점수 x${v}` },
     { id: 'intimidate',  icon: '😠', name: '위압감',      lv: [1.2, 1.4, 1.6],   desc: v => `적의 공격 준비 시간 x${v}` },
     { id: 'roar',        icon: '📣', name: '기합',        lv: [8, 6, 4.5],       desc: v => `${v}초마다 기합으로 주변 적을 밀어냄` },
-    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 피해% -${v}` },
+    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
     { id: 'second_wind', icon: '🪽', name: '낙법',        lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
     // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
     { id: 'giant',       icon: '🗿', name: '거대화',      lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
@@ -165,7 +165,7 @@ window.GAME_DATA = {
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
     { id: 'shield',      icon: '🔮', name: '방패막',      lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
     { id: 'gold_hand',   icon: '🪙', name: '황금손',      lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
-    { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 피해% -${+(v * 5).toFixed(2)}` },
+    { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
