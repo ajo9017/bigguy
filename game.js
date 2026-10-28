@@ -1386,7 +1386,7 @@
     a.t += dt * spd;
     const def = a.def;
     if (a.ranged) {
-      if (!a.fired && a.t >= def.active[0]) { a.fired = true; fireShots(p, a); }
+      if (!a.fired && a.t >= (def.ranged.at ?? def.active[0])) { a.fired = true; fireShots(p, a); }
     } else if (a.t >= def.active[0] && a.t <= def.active[1]) {
       const fxv = Math.cos(p.face), fyv = Math.sin(p.face);
       for (const e of enemies) {
@@ -2213,6 +2213,28 @@
     ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
   }
 
+  // 궁수의 활: 손 위치(b.x, b.y)에서 조준 방향에 수직으로 휜 활과 시위, 당긴 동안엔 화살
+  function drawBow(b, face, r, lw, line) {
+    const dx = Math.cos(face), dy = Math.sin(face) * SQ;
+    const nx = -Math.sin(face) * SQ, ny = Math.cos(face), h = r * 0.95;
+    const t1 = { x: b.x + nx * h - dx * r * 0.1, y: b.y + ny * h - dy * r * 0.1 }, t2 = { x: b.x - nx * h - dx * r * 0.1, y: b.y - ny * h - dy * r * 0.1 };
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = line; ctx.lineWidth = r * 0.2 + lw * 2;
+    ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.quadraticCurveTo(b.x + dx * r * 0.55, b.y + dy * r * 0.55, t2.x, t2.y); ctx.stroke();
+    ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = r * 0.2;
+    ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.quadraticCurveTo(b.x + dx * r * 0.55, b.y + dy * r * 0.55, t2.x, t2.y); ctx.stroke();
+    const sx0 = b.fired ? b.x - dx * r * 0.05 : b.hx, sy0 = b.fired ? b.y - dy * r * 0.05 : b.hy;
+    ctx.strokeStyle = '#f2ecd8'; ctx.lineWidth = Math.max(1, lw * 0.8);
+    ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.lineTo(sx0, sy0); ctx.lineTo(t2.x, t2.y); ctx.stroke();
+    if (!b.fired) {
+      ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = Math.max(1.5, r * 0.07);
+      ctx.beginPath(); ctx.moveTo(sx0, sy0); ctx.lineTo(b.x + dx * r * 0.5, b.y + dy * r * 0.5); ctx.stroke();
+      ctx.fillStyle = '#e8e8f0'; ctx.beginPath();
+      const px = b.x + dx * r * 0.5, py = b.y + dy * r * 0.5;
+      ctx.moveTo(px + dx * r * 0.3, py + dy * r * 0.3); ctx.lineTo(px + nx * r * 0.1, py + ny * r * 0.1); ctx.lineTo(px - nx * r * 0.1, py - ny * r * 0.1); ctx.closePath(); ctx.fill();
+    }
+  }
+
   // 주인공: 머리띠 + 축제 겉옷(핫피)을 걸친 근육질 아저씨. 원점 = 몸 중심, 발끝 = +r
   function drawPlayer(e, r) {
     const fxv = Math.cos(e.face), fyv = Math.sin(e.face);
@@ -2242,6 +2264,7 @@
 
     // 팔: 어깨 → 주먹
     const arms = [];
+    let bow = null;
     for (const k of [-1, 1]) {
       const shx = k * r * 0.78, shy = -r * 0.6;
       let fx0 = k * r * 1.0, fy0 = r * 0.02 + Math.sin(e.walk + (k > 0 ? 0 : Math.PI)) * r * 0.08;
@@ -2253,7 +2276,17 @@
         let ang = e.face;
         const punching = a.spin || (e.combo % 2 === 1) === (k === 1);
         if (a.spin) { ang = e.face + u * Math.PI * 2 + (k > 0 ? 0 : Math.PI); ext = Math.min(1, ext * 2); }
-        if (punching) {
+        if (a.ranged && e.ch && e.ch.id === 'archer') {
+          // 활쏘기: 활 든 팔은 앞으로 뻗고, 반대 손은 시위를 당겼다가 발사하면 놓는다
+          const at = a.def.ranged.at ?? a.def.active[0];
+          const pull = a.fired ? 0 : clamp(a.t / at, 0, 1);
+          const bowArm = (k === 1) === (fxv >= 0);
+          const bx = Math.cos(e.face) * r * 1.7, by = Math.sin(e.face) * r * 1.7 * SQ - r * 0.3;
+          bow = { x: bx, y: by, pull, fired: a.fired };
+          if (bowArm) { fx0 = bx; fy0 = by; }
+          else { const d = r * 0.95 * pull + r * 0.15; fx0 = bx - Math.cos(e.face) * d; fy0 = by - Math.sin(e.face) * d * SQ; bow.hx = fx0; bow.hy = fy0; }
+          behind = Math.sin(e.face) < -0.3;
+        } else if (punching) {
           const tx = Math.cos(ang) * r * 1.75, ty = Math.sin(ang) * r * 1.75 * SQ - r * 0.3;
           fx0 += (tx - fx0) * ext; fy0 += (ty - fy0) * ext;
           behind = Math.sin(ang) < -0.3;
@@ -2336,6 +2369,7 @@
     }
 
     for (const m of arms) if (!m.behind) drawArm(m);
+    if (bow) drawBow(bow, e.face, r, lw, line);
 
     // 넓은 소매가 어깨를 덮는다
     for (const k of [-1, 1]) {

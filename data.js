@@ -393,7 +393,7 @@ window.GAME_DATA = {
       look: { skin: '#c98a5c', coat: '#4f6b3a', trim: '#33472a', shorts: '#3b4f2b', sock: '#2a2a22', hair: '#2a1a0f', band: '#33472a', hat: 'helmet', glove: '#2a2a22', mark: '兵' } },
     { id: 'archer', name: '궁수', unlock: { stat: 'plays', need: 25, text: '25판 플레이' }, skill: 'long_reach', desc: '활로 후려치고, 5타째는 화살을 쏜다. 전용기술 [강궁]은 굵은 화살 1발을 쏜다.',
       attack: { range: 84, arc: 70, damage: 4, knockback: 270, duration: 0.28, active: [0.06, 0.14], comboWindow: 0.45, finisherMul: 1.5, lunge: 40,
-        ranged: { range: 430, speed: 820, radius: 9, color: '#f4e3b0', shape: 'arrow', fin: { count: 1, radius: 12, speed: 950 } } },
+        ranged: { at: 0.14, range: 430, speed: 820, radius: 9, color: '#f4e3b0', shape: 'arrow', fin: { count: 1, radius: 12, speed: 950 } } },
       look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },
   ],
 
