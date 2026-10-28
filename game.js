@@ -1057,6 +1057,11 @@
     p.pct += dmg;
     let power = A.force * (1 + p.pct / 80) / p.mass;
     if (lvl('grip') && Math.hypot(p.x, p.y) > R * 0.7) power *= ab('grip');
+    // 체력 1% 이하(피해 198%+)면 아무리 작은 공격에도 기둥 밖으로 날아간다
+    if (p.pct >= 198) {
+      power = Math.max(power, R * 2.2 * FRICTION);
+      text(p.x, p.y - p.r * 2, p.r * 3, '체력 바닥!', '#ff4a4a', 24);
+    }
     p.vx += nx * power; p.vy += ny * power;
     p.hitstun = 0.22 + power / 1800;
     p.inv = ab('dodge', 0.5); p.hurt = 0.7; p.flash = 0.18; p.atk = null;
