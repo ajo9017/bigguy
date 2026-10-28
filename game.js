@@ -20,7 +20,7 @@
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'), chatSend: $('chatSend'), chatMsg: $('chatMsg'),
     ownerToggle: $('ownerToggle'), ownerRow: $('ownerRow'), ownerCode: $('ownerCode'),
-    chars: $('chars'), charList: $('charList'), charNow: $('charNow'),
+    skillInfo: $('skillInfo'), skillCards: $('skillCards'), chars: $('chars'), charList: $('charList'), charNow: $('charNow'),
     records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'), myName: $('myName'), nameInput: $('nameInput'),
   };
 
@@ -134,6 +134,7 @@
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [], meteors = [];
   let chatOpen = false;
+  let skillOpen = false, abilRects = [];
 
   // ---------- 입력 ----------
   const keys = new Set();
@@ -172,6 +173,10 @@
 
   canvas.addEventListener('pointerdown', e => {
     Sfx.unlock();
+    if (game.state === 'play' && !game.picking && !chatOpen && !skillOpen) {
+      const hit = abilRects.find(r => e.clientX >= r.x && e.clientX <= r.x + r.w && e.clientY >= r.y && e.clientY <= r.y + r.h);
+      if (hit) { openSkillInfo(); return; }
+    }
     if (e.pointerType === 'mouse' || stick.id !== null || e.clientX > W * 0.6) return;
     stick.id = e.pointerId; stick.ox = e.clientX; stick.oy = e.clientY; stick.x = stick.y = 0;
     canvas.setPointerCapture(e.pointerId);
@@ -274,6 +279,26 @@
     Sfx.play('pick');
     startWave(game.wave + 1);
   }
+
+  // 보유 능력 아이콘을 누르면 일시정지하고 능력 설명을 보여준다
+  function openSkillInfo() {
+    skillOpen = true;
+    releaseInput();
+    ui.skillCards.innerHTML = '';
+    for (const [id, l] of Object.entries(player.abil)) {
+      const a = ABIL[id];
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.style.cssText = 'cursor:default;width:100%;max-width:none;flex:none;flex-direction:row;align-items:center;text-align:left';
+      d.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.only ? '⭐ ' : ''}${a.name}</div>` +
+        `<div class="clv">Lv ${l}</div><div class="cdesc">${a.desc(abVal(a, l))}</div></div>`;
+      ui.skillCards.appendChild(d);
+    }
+    ui.skillInfo.classList.remove('hidden');
+  }
+  function closeSkillInfo() { skillOpen = false; ui.skillInfo.classList.add('hidden'); }
+  $('skillClose').addEventListener('click', closeSkillInfo);
+  ui.skillInfo.addEventListener('click', e => { if (e.target === ui.skillInfo) closeSkillInfo(); });
 
   // ---------- 개선 요청 채팅 ----------
   // Supabase Edge Function이 GitHub 이슈를 대신 만든다. 게임을 떠나지 않고 보낼 수 있다
@@ -670,6 +695,7 @@
   }
 
   function startGame() {
+    closeSkillInfo();
     saveName();
     resetGame();
     game.state = 'play';
@@ -2895,10 +2921,12 @@
     // 보유 능력 아이콘. 몇 초마다 발동하는 능력은 남은 쿨타임을 시계 모양으로 덮고 초를 적는다
     let ix = 16, iy = isTouch ? 62 : 70;
     const maxX = Math.max(140, W * 0.32);
+    abilRects = [];
     for (const [id, l] of Object.entries(player.abil)) {
       ctx.font = '20px system-ui, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(ABIL[id].icon, ix, iy);
+      abilRects.push({ x: ix - 3, y: iy - 3, w: 32, h: 28 });
       const cd = cooldownOf(id);
       if (cd) drawCooldown(cd, ix + 11, iy + 11);
       ctx.textAlign = 'left'; ctx.textBaseline = 'top';
@@ -2995,7 +3023,7 @@
     fx.zoom *= Math.exp(-5 * rdt);
     for (const m of motes) { m.y -= m.v * rdt; if (m.y < 0) { m.y = 1; m.x = Math.random(); } }
 
-    if (game.state !== 'play' || game.picking || chatOpen) return;
+    if (game.state !== 'play' || game.picking || chatOpen || skillOpen) return;
     if (fx.hitstop > 0) { fx.hitstop -= rdt; return; }
     let ts = 1;
     if (fx.slow > 0) { fx.slow -= rdt; ts = 0.3; }
