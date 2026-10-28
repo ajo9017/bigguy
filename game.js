@@ -573,7 +573,7 @@
   function attackText(ch) {
     if (!ch.attack) return '';
     const b = D.player.attack, a = ch.attack, t = [];
-    if (a.ranged) return '🏹 1~2타 근접 · 3타째 원거리 전용기술';
+    if (a.ranged) return '🏹 1~4타 근접 · 5타째 원거리 전용기술';
     if (a.range && a.range !== b.range) t.push(a.range > b.range ? '사거리 길다' : '사거리 짧다');
     if (a.duration && a.duration !== b.duration) t.push(a.duration < b.duration ? '공격 빠름' : '공격 느림');
     if (a.knockback && a.knockback > b.knockback) t.push('넉백 강함');
@@ -955,9 +955,10 @@
   function startAttack(p) {
     const a = p.attackDef;
     p.combo = (p.comboT > 0 ? p.combo : 0) + 1;
-    if (p.combo > 3) p.combo = 1;
+    const cycle = a.ranged ? (a.ranged.every || 5) : 3;
+    if (p.combo > cycle) p.combo = 1;
     p.comboT = a.comboWindow + a.duration;
-    const finisher = p.combo === 3;
+    const finisher = p.combo === cycle;
     const spin = finisher && !a.ranged && lvl('cyclone') > 0;
     const ranged = finisher && !!a.ranged;
     const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1));
@@ -971,7 +972,7 @@
     Sfx.play(finisher ? 'whoosh' : 'swish');
   }
 
-  // 원거리 공격: 발사체를 쏜다. 3타째는 캐릭터 전용기술(ranged.fin)로 바뀐다
+  // 원거리 공격: 발사체를 쏜다. 5타째(ranged.every)는 캐릭터 전용기술(ranged.fin)로 바뀐다
   function fireShots(p, a) {
     const R0 = a.def.ranged, fin = a.finisher ? R0.fin : null;
     const n = (fin && fin.count) || 1, spread = (fin && fin.spread) || 0;
