@@ -200,13 +200,23 @@
 
   // ---------- 능력 ----------
   const lvl = id => (player && player.abil[id]) || 0;
-  const ab = (id, dflt) => { const l = lvl(id); return l ? ABIL[id].lv[l - 1] : dflt; };
+  const maxLv = a => a.max || D.abilityMaxLevel;
+  // 레벨 l(1부터)의 값. lv 배열을 넘는 레벨은 마지막 변화량 x grow씩 이어가고 cap에서 멈춘다
+  function abVal(a, l) {
+    const n = a.lv.length;
+    if (l <= n) return a.lv[l - 1];
+    const step = a.lv[n - 1] - a.lv[n - 2];
+    let v = a.lv[n - 1] + step * (a.grow || D.abilityGrow) * (l - n);
+    if (a.cap != null) v = step > 0 ? Math.min(v, a.cap) : Math.max(v, a.cap);
+    return Math.round(v * 100) / 100;
+  }
+  const ab = (id, dflt) => { const l = lvl(id); return l ? abVal(ABIL[id], l) : dflt; };
   const abilSummary = () => Object.entries(player.abil).map(([id, l]) => `${ABIL[id].name} Lv${l}`).join(', ');
 
   function openPick() {
-    // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다
+    // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < a.lv.length && !(ranged && a.melee)));
+    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee)));
     if (!pool.length) { startWave(game.wave + 1); return; }
     game.choices = pool.slice(0, 3);
     game.picking = true;
@@ -218,7 +228,7 @@
       const b = document.createElement('button');
       b.className = 'card';
       b.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.name}</div>` +
-        `<div class="clv">${cur ? `Lv ${cur} → ${cur + 1}` : 'NEW'}</div><div class="cdesc">${a.desc(a.lv[cur])}</div></div>` +
+        `<div class="clv">${cur ? `Lv ${cur} → ${cur + 1}` : 'NEW'}</div><div class="cdesc">${a.desc(abVal(a, cur + 1))}</div></div>` +
         (isTouch ? '' : `<div class="ckey">${i + 1}</div>`);
       b.addEventListener('click', () => choose(i));
       ui.cards.appendChild(b);

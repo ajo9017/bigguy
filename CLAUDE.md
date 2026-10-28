@@ -12,7 +12,7 @@
 - 콘텐츠 추가는 되도록 `data.js`만 수정한다. 새로운 행동 패턴이 필요할 때만 `game.js`를 고친다(적은 `updateEnemy`의 behavior, 능력은 `ab('id')`로 값을 읽는 곳)
 - 모바일(터치)과 PC(키보드) 조작을 둘 다 유지한다. 공격 버튼은 하나만 둔다(밀치기는 너무 강해서 뺐다)
 - 핵심 규칙: 피해%가 높을수록 넉백이 커진다(스매시브라더스 방식). 적 처치와 게임오버는 오직 기둥에서 떨어질 때만 일어난다
-- 능력은 웨이브 클리어 때 3개 중 하나를 고르고, 같은 능력은 최대 Lv3까지 오른다
+- 능력은 웨이브 클리어 때 3개 중 하나를 고르고, 같은 능력은 최대 Lv20까지 오른다(`data.js`의 `abilityMaxLevel`. Lv4부터는 증가폭이 절반이고 능력별 `cap`에서 멈춘다)
 - 개인 기록(최고 점수, 플레이 횟수, 최근 30판)과 이름은 브라우저 localStorage(`bigguy.records`, `bigguy.name`)에 저장된다. 기기마다 따로 저장된다
 - 전체 랭킹은 Supabase `scores` 표(name, score, wave, kills, created_at)에 저장된다. 접속 정보는 `data.js`의 `ranking`. publishable 키는 공개용이고, RLS로 읽기와 추가만 허용한다(수정, 삭제 불가). 다른 사람의 이름을 화면에 넣을 때는 반드시 textContent를 쓴다. secret 키는 절대 코드에 넣지 않는다
 - 게임이 끝나면 골드를 얻고(`data.js`의 `gold`), 골드로 캐릭터 10종(`data.js`의 `characters`)을 산다. 캐릭터마다 시작 능력 1개, 공격 수치 덮어쓰기(`attack`), 외형(`look`)이 있다. 골드/보유/선택은 localStorage(`bigguy.gold`, `bigguy.chars`, `bigguy.char`)에 저장된다. 새 캐릭터는 `characters`에 추가한다. 원거리 캐릭터는 `attack.ranged`(발사체 설정)와 3타째 전용기술 `ranged.fin`을 쓴다(`fireShots`, `updateShots`)
