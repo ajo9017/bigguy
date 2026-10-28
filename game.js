@@ -961,13 +961,14 @@
     const finisher = p.combo === cycle;
     const spin = finisher && !a.ranged && lvl('cyclone') > 0;
     const ranged = finisher && !!a.ranged;
-    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1));
+    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1)) * (finisher && a.finRange || 1);
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0)) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
     if (!spin && a.lunge) {
-      p.vx += Math.cos(p.face) * a.lunge * ab('lunge', 1);
-      p.vy += Math.sin(p.face) * a.lunge * ab('lunge', 1);
+      const lg = a.lunge * (finisher && a.finLunge || 1) * ab('lunge', 1);
+      p.vx += Math.cos(p.face) * lg;
+      p.vy += Math.sin(p.face) * lg;
     }
     Sfx.play(finisher ? 'whoosh' : 'swish');
   }
@@ -1103,7 +1104,7 @@
 
     // 대시: 쿨타임이 차면 버튼으로 바라보는(또는 움직이는) 방향으로 돌진한다
     const DS = D.player.dash;
-    const dashFull = DS.cooldown * ab('dash_cool', 1);
+    const dashFull = DS.cooldown * ab('dash_cool', 1) * (p.ch.dashCool || 1);
     if (p.dashCd > 0) p.dashCd -= dt;
     if (p.hitstun <= 0 && p.dashT <= 0 && p.dashCd <= 0 && consumeDash()) {
       const mv = moveInput();
@@ -1176,6 +1177,9 @@
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
+        // 캐릭터 개성: 잽은 오래 경직(stunMul), 강타는 불붙임(finBurn)
+        if (!a.finisher && def.stunMul) e.hitstun *= def.stunMul;
+        if (a.finisher && def.finBurn && !e.burnT) { e.burnT = 3; e.burnDps = def.finBurn; }
         elementHit(e);
         const vamp = ab('vampire', 0);
         if (vamp && p.pct > 0) {
@@ -1187,6 +1191,12 @@
     if (!a.ranged && a.finisher && !a.shocked && a.t > def.active[1] && lvl('shockwave')) {
       a.shocked = true;
       pushAround(p, ab('shockwave'), 4, 450, true, a.hit);
+    }
+    // 스모: 강타가 끝나면 발을 굴러 주변을 밀어낸다(finQuake = 반경)
+    if (!a.ranged && a.finisher && def.finQuake && !a.quaked && a.t > def.active[1]) {
+      a.quaked = true;
+      pushAround(p, def.finQuake, 3, 380, true, a.hit);
+      fx.shake = Math.max(fx.shake, 10);
     }
     if (a.t >= def.duration) p.atk = null;
   }
@@ -2371,7 +2381,7 @@
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
 
     // 대시 쿨타임: 터치 버튼 글자와 화면 왼쪽 위 게이지
-    const dFull = D.player.dash.cooldown * ab('dash_cool', 1), dLeft = Math.max(0, player.dashCd);
+    const dFull = D.player.dash.cooldown * ab('dash_cool', 1) * (player.ch.dashCool || 1), dLeft = Math.max(0, player.dashCd);
     const dTxt = dLeft > 0 ? dLeft.toFixed(1) : '대시';
     if (btnDash.textContent !== dTxt) { btnDash.textContent = dTxt; btnDash.classList.toggle('cool', dLeft > 0); }
     if (!isTouch) {
