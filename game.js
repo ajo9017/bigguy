@@ -127,7 +127,7 @@
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0,
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, xp: 0, filled: -1,
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
@@ -235,7 +235,7 @@
     game.choices = pool.slice(0, 3);
     game.picking = true;
     releaseInput();
-    ui.pickTitle.textContent = `WAVE ${game.wave + 1} 클리어! 능력을 하나 고르세요`;
+    ui.pickTitle.textContent = `LEVEL UP! Lv ${game.wave + 2} · 능력을 하나 고르세요`;
     ui.cards.innerHTML = '';
     game.choices.forEach((a, i) => {
       const cur = lvl(a.id);
@@ -645,7 +645,7 @@
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, xp: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -710,22 +710,34 @@
     return spec;
   }
 
+  // 경험치 시스템: 적이 끊임없이 나오고, 처치 경험치가 차면 레벨업(능력 선택). game.wave는 현재 레벨-1(난이도 단계)이다
+  const xpNeed = lv => { const X = D.xp, n = lv - 1; return Math.round(X.base + X.step * n + X.quad * n * n); };
+  const xpOf = def => Math.max(1, Math.round(def.score / D.xp.div));
+
+  // 지금 레벨의 적 구성을 queue에 채운다. 보스는 레벨마다 한 번만 맨 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
+  function fillQueue() {
+    const spec = waveSpec(game.wave);
+    const isBoss = k => D.enemies[k] && D.enemies[k].boss;
+    const q = [];
+    for (const k in spec) for (let n = 0; n < spec[k]; n++) q.push(k);
+    shuffle(q);
+    const first = game.filled !== game.wave;
+    game.filled = game.wave;
+    const boss = first ? q.filter(isBoss) : [];
+    game.queue = q.filter(k => !isBoss(k)).concat(boss);
+  }
+
   function startWave(i) {
     game.wave = i;
-    game.queue = [];
-    const spec = waveSpec(i);
-    for (const k in spec) for (let n = 0; n < spec[k]; n++) game.queue.push(k);
-    shuffle(game.queue);
-    // 보스는 맨 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
-    const isBoss = k => D.enemies[k] && D.enemies[k].boss;
-    const boss = game.queue.filter(isBoss);
-    game.queue = game.queue.filter(k => !isBoss(k)).concat(boss);
+    game.xp = 0;
+    fillQueue();
+    const boss = game.queue.filter(k => D.enemies[k] && D.enemies[k].boss);
     game.spawnT = 1.2;
     game.bossT = -1;
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
-    game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
+    game.banner = boss.length ? { text: `BOSS LEVEL ${i + 1}`, t: 2.4, max: 2.4 } : { text: `LEVEL ${i + 1}`, t: 2, max: 2 };
     if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * endlessN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
@@ -765,38 +777,33 @@
     if (player.falling) return;
     if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
     if (game.itemT > 0 && (game.itemT -= dt) <= 0) dropItem();
+    // 경험치가 차면 레벨업: 능력 선택 (선택 전까지 게임이 멈춘다)
+    if (game.xp >= xpNeed(game.wave + 1)) {
+      const heal = ab('recovery', 0);
+      if (heal && player.pct > 0) {
+        player.pct = Math.max(0, player.pct - heal);
+        text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
+      }
+      openPick();
+      return;
+    }
     const alive = enemies.filter(e => !e.falling).length;
-    if (game.queue.length) {
-      game.spawnT -= dt;
-      const next = game.queue[game.queue.length - 1];
-      if (game.spawnT <= 0 && alive < D.maxAlive) {
-        if (D.enemies[next] && D.enemies[next].boss) {
-          // 보스 등장 연출: 경고 문구와 붉은 화면, 흔들림 뒤에 등장한다
-          if (game.bossT < 0) {
-            game.bossT = 1.8;
-            game.banner = { text: '⚠ WARNING ⚠', sub: D.enemies[next].name + ' 접근 중...', color: '#ff4a4a', t: 1.8, max: 1.8 };
-            Sfx.play('roar');
-          }
-          game.bossT -= dt;
-          fx.red = Math.max(fx.red, 0.35 + 0.2 * Math.sin(game.bossT * 14));
-          fx.shake = Math.max(fx.shake, 3 + (1.8 - game.bossT) * 3);
-          if (game.bossT <= 0) { game.bossT = -1; fx.shake = 24; fx.zoom = 0.08; spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
-        } else { spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
-      }
-    } else if (alive === 0) {
-      if (game.clearT < 0) {
-        // 보스 폭죽이 남아 있으면 다 터질 때까지 기다리고, 격파 배너는 덮어쓰지 않는다
-        game.clearT = Math.max(1.3, ...game.fireworks.map(f => f.t + 1));
-        if (!(game.banner && game.banner.boss)) game.banner = { text: 'CLEAR!', t: 1.3, max: 1.3 };
-        const heal = ab('recovery', 0);
-        if (heal && player.pct > 0) {
-          player.pct = Math.max(0, player.pct - heal);
-          text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
+    if (!game.queue.length) fillQueue();
+    game.spawnT -= dt;
+    const next = game.queue[game.queue.length - 1];
+    if (game.spawnT <= 0 && alive < D.maxAlive) {
+      if (D.enemies[next] && D.enemies[next].boss) {
+        // 보스 등장 연출: 경고 문구와 붉은 화면, 흔들림 뒤에 등장한다
+        if (game.bossT < 0) {
+          game.bossT = 1.8;
+          game.banner = { text: '⚠ WARNING ⚠', sub: D.enemies[next].name + ' 접근 중...', color: '#ff4a4a', t: 1.8, max: 1.8 };
+          Sfx.play('roar');
         }
-      } else {
-        game.clearT -= dt;
-        if (game.clearT <= 0) openPick();
-      }
+        game.bossT -= dt;
+        fx.red = Math.max(fx.red, 0.35 + 0.2 * Math.sin(game.bossT * 14));
+        fx.shake = Math.max(fx.shake, 3 + (1.8 - game.bossT) * 3);
+        if (game.bossT <= 0) { game.bossT = -1; fx.shake = 24; fx.zoom = 0.08; spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
+      } else { spawnEnemy(game.queue.pop()); game.spawnT = D.spawnInterval; }
     }
   }
 
@@ -1455,6 +1462,7 @@
     game.chainN++; game.chainT = ab('chain', 1.5);
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
+    game.xp += xpOf(e.def);
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
     if (e.def.boss) bossDefeated(e);
     const adr = ab('adrenaline', 0);
@@ -2317,7 +2325,11 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 18px system-ui, sans-serif';
-    ctx.fillText(`WAVE ${game.wave + 1}`, 16, 14);
+    ctx.fillText(`LV ${game.wave + 1}`, 16, 14);
+    // 경험치 막대: 화면 맨 위
+    const need = xpNeed(game.wave + 1), xr = Math.min(1, game.xp / need);
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(0, 0, W, 6);
+    ctx.fillStyle = '#7dd6ff'; ctx.fillRect(0, 0, W * xr, 6);
     ctx.font = '600 15px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
