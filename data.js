@@ -220,14 +220,14 @@ window.GAME_DATA = {
       stages: [5, 20],
       name: '장판 마녀왕', color: '#a03a98', radius: 40, mass: 7, speed: 75, behavior: 'walker', score: 2500, boss: true, crown: true,
       attack: { range: 76, windup: 0.8, recover: 0.9, damage: 20, force: 1050 },
-      zone: { every: 3.5, radius: 90, windup: 1.1, damage: 17, force: 1000, count: 2 },
+      zone: { every: 1.75, radius: 90, windup: 1.1, damage: 17, force: 1000, count: 2 },
       summon: { every: 8, type: 'runner', count: 2 },
     },
     boss_inferno: {
       stages: [15, 30],
       name: '불바다 군주', color: '#d9532a', radius: 48, mass: 10, speed: 80, behavior: 'charger', score: 5500, boss: true, horn: true, spikes: true,
       attack: { range: 330, windup: 0.7, dashSpeed: 900, dashTime: 0.7, recover: 0.8, damage: 26, force: 1300 },
-      zone: { every: 2.8, radius: 100, windup: 1.0, damage: 20, force: 1150, count: 3 },
+      zone: { every: 1.4, radius: 100, windup: 1.0, damage: 20, force: 1150, count: 3 },
     },
   },
 
