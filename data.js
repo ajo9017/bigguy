@@ -222,7 +222,18 @@ window.GAME_DATA = {
     { id: 'fire_fist',   icon: '🔥', name: '불꽃 주먹',   cap: 30, lv: [4, 7, 10],        desc: v => `공격에 맞은 적이 3초간 불타 초당 피해% +${v}` },
     { id: 'frost',       icon: '❄️', name: '얼음 타격',   cap: 2.5, lv: [0.5, 0.8, 1.1],   desc: v => `공격에 맞은 적이 ${v}초간 얼어붙음 (보스는 절반)` },
     { id: 'spark',       icon: '⚡', name: '번개 타격',   cap: 40, lv: [8, 13, 18],       desc: v => `공격 적중 시 주변 적 둘에게 번개가 튀어 피해% +${v}` },
-    { id: 'regen',       icon: '🌿', name: '재생',        cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
+    // 특별 스킬 10종: every초마다 저절로 발동하거나(바위, 분신, 유령화, 운석, 시간 정지, 지진, 대포) 공격에 붙는다(배쉬, 치명타, 복수)
+    { id: 'rock_roll',   icon: '🪨', name: '바위 굴리기', cap: 2400, every: 8, lv: [700, 900, 1150], desc: v => `8초마다 앞으로 큰 바위를 굴려 적을 날림 (힘 ${v})` },
+    { id: 'clone',       icon: '👥', name: '분신술',      cap: 14, every: 14, lv: [4, 6, 8], desc: v => `14초마다 ${v}초간 분신이 나타나 주변 적을 계속 밀침` },
+    { id: 'ghost',       icon: '🫥', name: '유령화',      cap: 6, every: 12, lv: [1.5, 2.2, 3], desc: v => `12초마다 ${v}초간 유령이 되어 공격을 받지 않고 적을 통과함` },
+    { id: 'bash',        icon: '🔨', name: '배쉬',        cap: 0.6, lv: [0.12, 0.18, 0.25], desc: v => `공격이 ${Math.round(v * 100)}% 확률로 강한 범위 밀치기가 됨` },
+    { id: 'meteor',      icon: '☄️', name: '운석 소환',   cap: 10, every: 10, lv: [2, 3, 4], desc: v => `10초마다 운석 ${v}개가 적 위로 떨어짐` },
+    { id: 'time_stop',   icon: '⏳', name: '시간 정지',   cap: 5, every: 16, lv: [1.5, 2, 2.5], desc: v => `16초마다 모든 적이 ${v}초간 멈춤 (보스는 절반)` },
+    { id: 'crit',        icon: '🎲', name: '치명타',      cap: 0.6, lv: [0.15, 0.22, 0.3], desc: v => `공격이 ${Math.round(v * 100)}% 확률로 넉백 x2.5` },
+    { id: 'stomp',       icon: '🦶', name: '대지진',      cap: 450, every: 11, lv: [200, 250, 300], desc: v => `11초마다 발을 굴러 반경 ${v} 안의 적을 날림` },
+    { id: 'cannon',      icon: '💣', name: '대포',        cap: 220, every: 7, lv: [90, 115, 140], desc: v => `7초마다 가까운 적에게 폭탄을 쏨 (폭발 반경 ${v})` },
+    { id: 'revenge',     icon: '⚔️', name: '복수',        cap: 5, lv: [1.5, 2, 2.6], desc: v => `맞은 뒤 4초간 공격 넉백 x${v}` },
+    { id: 'regen',       icon: '🌿', name: '재생',       cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.

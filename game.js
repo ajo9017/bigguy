@@ -639,7 +639,7 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     const ch = charById(selChar);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, dashCd: 0, dashT: 0, dashHit: null, giantT: 0, giant: 0, grow: 1, shieldT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, dashCd: 0, dashT: 0, dashHit: null, giantT: 0, giant: 0, grow: 1, shieldT: 0, pt: {}, clone: null, ghost: 0, revengeT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
       attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
     if (ch.skill && ABIL[ch.skill]) {
       player.abil[ch.skill] = 1;
@@ -1012,10 +1012,11 @@
         s.hit.add(e);
         let kb = s.kb;
         if (e.pct >= 100) kb *= ab('execute', 1);
+        if (!s.special) kb *= specialKb(player);
         const nx = Math.cos(s.ang), ny = Math.sin(s.ang);
         hitEnemy(e, nx, ny, s.dmg, kb, s.heavy);
-        elementHit(e);
-        const vamp = ab('vampire', 0);
+        if (!s.special) elementHit(e);
+        const vamp = s.special ? 0 : ab('vampire', 0);
         if (vamp && player.pct > 0) player.pct = Math.max(0, player.pct - vamp);
         if (s.boom) {
           ring(s.x, s.y, 6, s.color, s.boom / 3);
@@ -1058,6 +1059,112 @@
     zones = zones.filter(z => !z.dead);
   }
 
+  // 특별 스킬: every초마다 저절로 발동한다(p.pt[id] = 쌓인 시간)
+  function specialReady(p, id, dt) {
+    if (!lvl(id)) return false;
+    p.pt[id] = (p.pt[id] || 0) + dt;
+    if (p.pt[id] < ABIL[id].every) return false;
+    p.pt[id] = 0;
+    return true;
+  }
+  function updateSpecials(p, dt) {
+    if (p.revengeT > 0) p.revengeT -= dt;
+    // 바위 굴리기: 큰 바위가 앞으로 굴러가며 맞은 적을 날린다
+    if (specialReady(p, 'rock_roll', dt)) {
+      const tgt = nearestEnemy(p, R * 1.5);
+      const ang = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : p.face, sp = 360;
+      shots.push({
+        x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        r: 36, color: '#8b857a', shape: 'rock', left: R * 1.7, dmg: 8, kb: ab('rock_roll'), heavy: true, pierce: true, boom: 0, hit: new Set(), special: true,
+      });
+      text(p.x, p.y, p.r * 3, '바위 굴러간다!', '#d9d2c4', 20);
+      Sfx.play('whoosh');
+    }
+    // 분신술: 잠시 분신이 곁을 돌며 주변 적을 밀친다
+    if (!p.clone && specialReady(p, 'clone', dt)) {
+      p.clone = { x: p.x, y: p.y, t: ab('clone'), hitT: 0, a: p.face + Math.PI / 2 };
+      ring(p.x, p.y, p.r, '#9fe6ff', p.r * 2);
+      text(p.x, p.y, p.r * 3, '분신술!', '#9fe6ff', 24);
+      Sfx.play('roar');
+    } else if (p.clone) {
+      const c = p.clone;
+      c.t -= dt; c.a += dt * 2.2;
+      c.x = p.x + Math.cos(c.a) * 95; c.y = p.y + Math.sin(c.a) * 95;
+      if (Math.hypot(c.x, c.y) > R * 0.95) { const k = R * 0.95 / Math.hypot(c.x, c.y); c.x *= k; c.y *= k; }
+      c.hitT -= dt;
+      if (c.hitT <= 0) {
+        c.hitT = 0.55;
+        pushAround(c, 85, 3, 380, false);
+        burst(c.x, c.y, 20, '#9fe6ff', 5, 200);
+      }
+      if (c.t <= 0) { ring(c.x, c.y, 20, '#9fe6ff', 50); p.clone = null; }
+    }
+    // 유령화: 잠깐 공격을 받지 않고 적을 통과한다
+    if (p.ghost > 0) {
+      p.ghost -= dt;
+      p.inv = Math.max(p.inv, 0.1);
+    } else if (specialReady(p, 'ghost', dt)) {
+      p.ghost = ab('ghost');
+      ring(p.x, p.y, p.r, '#e8e8ff', p.r * 2);
+      text(p.x, p.y, p.r * 3, '유령화!', '#e8e8ff', 24);
+      Sfx.play('roar');
+    }
+    // 운석 소환: 가까운 적부터 위에서 떨어진다
+    if (specialReady(p, 'meteor', dt)) {
+      const list = enemies.filter(e => activeEnemy(e) && e.z > -1).sort(() => Math.random() - 0.5).slice(0, ab('meteor'));
+      for (const e of list) {
+        pushAround(e, 80, 8, 650, true, new Set([e]));
+        hitEnemy(e, Math.random() - 0.5, Math.random() - 0.5, 8, 650, true);
+        burst(e.x, e.y, 30, '#ff8a3c', 18, 460);
+        ring(e.x, e.y, 10, '#ff8a3c', 90);
+      }
+      if (list.length) { text(p.x, p.y, p.r * 3, '운석!', '#ff8a3c', 24); fx.shake = Math.max(fx.shake, 12); Sfx.play('fall'); }
+    }
+    // 시간 정지: 모든 적이 잠깐 얼어붙는다
+    if (specialReady(p, 'time_stop', dt)) {
+      const t = ab('time_stop');
+      for (const e of enemies) {
+        if (!activeEnemy(e)) continue;
+        e.frozen = Math.max(e.frozen || 0, e.def.boss ? t / 2 : t);
+        e.vx *= 0.3; e.vy *= 0.3;
+      }
+      ring(p.x, p.y, p.r, '#c8b8ff', 400);
+      text(p.x, p.y, p.r * 3, '시간 정지!', '#c8b8ff', 26);
+      Sfx.play('pick');
+    }
+    // 대지진
+    if (specialReady(p, 'stomp', dt)) {
+      pushAround(p, ab('stomp'), 6, 750, true);
+      fx.shake = Math.max(fx.shake, 20); fx.zoom = Math.max(fx.zoom, 0.05);
+      burst(p.x, p.y, p.r, '#b08a5a', 20, 520);
+      text(p.x, p.y, p.r * 3, '쿵!', '#ffd9a0', 30);
+      Sfx.play('bighit');
+    }
+    // 대포: 가장 가까운 적에게 폭탄을 쏜다
+    if (specialReady(p, 'cannon', dt)) {
+      const tgt = nearestEnemy(p, R * 2);
+      if (tgt) {
+        const ang = Math.atan2(tgt.y - p.y, tgt.x - p.x), sp = 600;
+        shots.push({
+          x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+          r: 13, color: '#ff6a3c', shape: 'bomb', left: R * 2, dmg: 6, kb: 520, heavy: true, pierce: false, boom: ab('cannon'), hit: new Set(), special: true,
+        });
+        Sfx.play('whoosh');
+      } else p.pt.cannon = ABIL.cannon.every - 0.5;
+    }
+  }
+
+  // 공격 넉백에 붙는 특별 스킬 배율: 치명타, 복수
+  function specialKb(p) {
+    let m = 1;
+    if (lvl('crit') && Math.random() < ab('crit')) {
+      m *= 2.5;
+      text(p.x, p.y, p.r * 3.5, '치명타!', '#ff5a5a', 24);
+    }
+    if (p.revengeT > 0) m *= ab('revenge', 1);
+    return m;
+  }
+
   function updatePlayer(p, dt) {
     if (p.falling) return;
     p.comboT = Math.max(0, p.comboT - dt);
@@ -1074,6 +1181,7 @@
     }
 
     if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
+    updateSpecials(p, dt);
     // 아이템 지속 효과
     for (const k of ['starT', 'hasteT', 'powerT']) if (p[k] > 0) p[k] -= dt;
     const haste = p.hasteT > 0 ? ITEM.drink.mul : 1, power = p.powerT > 0 ? ITEM.protein.mul : 1;
@@ -1183,6 +1291,7 @@
         kb *= 1 + p.pct / 100 * ab('berserk', 0);
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
+        kb *= specialKb(p);
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
         // 캐릭터 개성: 잽은 오래 경직(stunMul), 강타는 불붙임(finBurn)
         if (!a.finisher && def.stunMul) e.hitstun *= def.stunMul;
@@ -1210,6 +1319,15 @@
 
   // 속성 능력(불꽃 주먹, 얼음 타격, 번개 타격): 내 공격이 적중했을 때만 붙는다
   function elementHit(e) {
+    // 배쉬: 확률로 적을 크게 밀쳐내고 주변 적도 함께 날린다
+    if (lvl('bash') && Math.random() < ab('bash')) {
+      const dx = e.x - player.x, dy = e.y - player.y, d = Math.hypot(dx, dy) || 1;
+      e.vx += dx / d * 700 * (1 + e.pct / 80) / e.mass; e.vy += dy / d * 700 * (1 + e.pct / 80) / e.mass;
+      pushAround(e, 130, 4, 700, true, new Set([e]));
+      text(e.x, e.y - e.r, e.r * 3.5, '배쉬!', '#ffb347', 26);
+      burst(e.x, e.y, e.r, '#ffb347', 14, 480);
+      fx.shake = Math.max(fx.shake, 12);
+    }
     if (lvl('fire_fist')) { e.burnT = 3; e.burnDps = ab('fire_fist'); }
     if (lvl('frost')) {
       const t = ab('frost') * (e.def.boss ? 0.5 : 1);
@@ -1279,7 +1397,7 @@
     }
     p.vx += nx * power; p.vy += ny * power;
     p.hitstun = 0.22 + power / 1800;
-    p.inv = ab('dodge', 0.5); p.hurt = 0.7; p.flash = 0.18; p.atk = null;
+    p.inv = ab('dodge', 0.5); p.revengeT = lvl('revenge') ? 4 : 0; p.hurt = 0.7; p.flash = 0.18; p.atk = null;
     p.sqx = 1.45; p.sqy = 0.6; p.tilt = (nx >= 0 ? 1 : -1) * 0.7;
     fx.hitstop = 0.12 + Math.min(0.1, power / 9000);
     fx.shake = Math.min(40, 12 + power / 35);
@@ -1589,6 +1707,7 @@
       for (let j = i + 1; j < all.length; j++) {
         const b = all[j];
         if (b.falling || b.state === 'spawn' || b.dead) continue;
+        if ((a.ghost > 0 && b.kind === 'enemy') || (b.ghost > 0 && a.kind === 'enemy')) continue;
         const dx = b.x - a.x, dy = b.y - a.y, min = a.r + b.r;
         let d = Math.hypot(dx, dy);
         if (d >= min) continue;
@@ -1784,7 +1903,16 @@
       ctx.beginPath(); ctx.ellipse(px, sy(s.y, 0), r, r * SQ, 0, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.translate(px, py);
       const ang = Math.atan2(Math.sin(s.ang) * SQ, Math.cos(s.ang));
-      if (s.shape === 'orb') {
+      if (s.shape === 'rock' || s.shape === 'bomb') {
+        ctx.rotate(time * (s.shape === 'rock' ? 9 : 0) * Math.sign(Math.cos(s.ang) || 1));
+        ctx.fillStyle = s.shape === 'rock' ? '#8b857a' : '#2a2a30';
+        ctx.strokeStyle = '#3b3630'; ctx.lineWidth = Math.max(2, r * 0.1);
+        ctx.beginPath();
+        for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, rr = s.shape === 'rock' ? r * (0.88 + 0.18 * Math.sin(i * 2.7)) : r; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = s.shape === 'rock' ? '#a8a296' : '#ff6a3c';
+        ctx.beginPath(); ctx.arc(-r * 0.25, -r * 0.25, r * 0.28, 0, Math.PI * 2); ctx.fill();
+      } else if (s.shape === 'orb') {
         const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 1.5);
         g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, s.color); g.addColorStop(1, 'rgba(181,124,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.fill();
@@ -2238,6 +2366,18 @@
     ctx.fillStyle = '#fff'; ctx.fillText(`${hp}%`, px, y + h / 2 + 0.5);
   }
 
+  // 분신술: 반투명한 분신이 플레이어를 따라 돈다
+  function drawClone() {
+    const c = player && player.clone;
+    if (!c || player.falling) return;
+    const r = player.r * S;
+    ctx.save();
+    ctx.translate(sx(c.x), sy(c.y, 0) - r);
+    ctx.globalAlpha = c.t < 1 ? 0.25 + 0.25 * Math.sin(time * 30) : 0.5;
+    drawPlayer({ ...player, atk: null, flash: 0, hurt: 0, inv: 0, face: Math.atan2(c.y - player.y, c.x - player.x) + Math.PI / 2, walk: time * 8 }, r);
+    ctx.restore();
+  }
+
   function drawEntity(e) {
     const r = e.r * S;
     const px = sx(e.x), py = sy(e.y, e.z);
@@ -2246,6 +2386,7 @@
     ctx.translate(px, py - r + bob);
     ctx.rotate(e.tilt + e.spin);
     ctx.scale(e.sqx, e.sqy);
+    if (e.kind === 'player' && e.ghost > 0) ctx.globalAlpha = 0.4;
     if (e.kind === 'player') drawPlayer(e, r); else drawEnemy(e, r);
     if (e.kind === 'player' && (e.inv > 0 || e.starT > 0) && !e.falling) {
       // 무적: 캐릭터 전체가 빠르게 반짝이고 별빛이 튄다
@@ -2328,6 +2469,12 @@
     if (id === 'roar') return { frac: p.roarT / ab('roar'), left: ab('roar') - p.roarT };
     if (id === 'regen') return { frac: (p.regenT || 0) / 5, left: 5 - (p.regenT || 0) };
     if (id === 'shield') return p.shieldT >= ab('shield') ? { frac: 1, left: 0, ready: true } : { frac: p.shieldT / ab('shield'), left: ab('shield') - p.shieldT };
+    if (ABIL[id].every && id !== 'giant') {
+      const E = ABIL[id].every, t = p.pt[id] || 0;
+      if (id === 'clone' && p.clone) return { frac: 1, left: p.clone.t, active: true };
+      if (id === 'ghost' && p.ghost > 0) return { frac: 1, left: p.ghost, active: true };
+      return { frac: t / E, left: E - t };
+    }
     if (id === 'giant') {
       if (p.giant > 0) return { frac: 1, left: p.giant, active: true };
       return { frac: p.giantT / ABIL.giant.every, left: ABIL.giant.every - p.giantT };
@@ -2486,6 +2633,7 @@
     const key = e => (e.z < -1 ? 1e6 : 0) + e.y;
     front.sort((a, b) => key(a) - key(b));
     for (const e of front) drawEntity(e);
+    drawClone();
     drawParticles();
     ctx.restore();
 
