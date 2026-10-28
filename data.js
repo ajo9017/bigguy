@@ -169,7 +169,7 @@ window.GAME_DATA = {
   ],
 
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
-  gold: { perScore: 25, perWave: 8 },
+  gold: { perScore: 250, perWave: 0.8 },
 
   // 캐릭터 10종(근접 7 + 원거리 3). price 0 = 처음부터 사용 가능. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
   // attack = 기본 공격 수치를 덮어씀(player.attack 기준), mass/speed = 몸무게/이동속도 배율.
