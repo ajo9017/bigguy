@@ -1078,7 +1078,7 @@
     text(p.x, p.y, p.r * 3, `+${Math.round(dmg)}%`, '#ff4a4a', 30);
     text(p.x + nx * 40, p.y + ny * 40, p.r * 2, SHOUTS[Math.floor(Math.random() * SHOUTS.length)], '#ffffff', 20);
     // 낙하 궤도면 슬로모션
-    if (Math.hypot(p.x + p.vx / FRICTION, p.y + p.vy / FRICTION) > R) fx.slow = 0.8;
+    if (Math.hypot(p.x + p.vx / FRICTION, p.y + p.vy / FRICTION) > R + p.r * 0.6) fx.slow = 0.8;
     Sfx.play('hurt');
 
     if (lvl('thorns')) hitEnemy(e, -nx, -ny, ab('thorns'), ab('thorns') * 35, false);
@@ -1324,7 +1324,7 @@
     for (const e of all) physics(e, dt);
     collide(all);
     for (const e of all) {
-      if (!e.falling && e.state !== 'spawn' && Math.hypot(e.x, e.y) > R) startFall(e);
+      if (!e.falling && e.state !== 'spawn' && Math.hypot(e.x, e.y) > R + e.r * 0.6) startFall(e);
     }
     enemies = enemies.filter(e => !e.dead);
     updateItems(dt);
