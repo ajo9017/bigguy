@@ -17,6 +17,8 @@ window.GAME_DATA = {
     speed: 230,
     // 공격 하나뿐. 연속 3타째가 강타(finisher)
     attack: { range: 78, arc: 110, damage: 6, knockback: 420, duration: 0.24, active: [0.05, 0.14], comboWindow: 0.45, finisherMul: 2.0, lunge: 70 },
+    // 대시 버튼(PC: L / Shift): cooldown초마다 time초 동안 speed로 돌진하고 그동안 무적. 대시 능력(dash_*)이 수치를 바꾼다
+    dash: { cooldown: 5, time: 0.18, speed: 1100, inv: 0.1 },
   },
 
   // behavior: 'walker' = 다가와서 휘두르기, 'charger' = 멀리서 조준 후 돌진
@@ -190,6 +192,12 @@ window.GAME_DATA = {
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
     { id: 'shield',      icon: '🔮', name: '방패막',      cap: 2.5, lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
     { id: 'gold_hand',   icon: '🪙', name: '황금손',      cap: 3, lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
+    // 대시 능력: 대시 버튼은 처음부터 있고, 이 능력들이 대시를 강화한다
+    { id: 'dash_cool',   icon: '⏱️', name: '대시 재충전', cap: 0.35, lv: [0.8, 0.65, 0.5], desc: v => `대시 쿨타임 x${v}` },
+    { id: 'dash_far',    icon: '🏃', name: '멀리 대시',   cap: 2.6, lv: [1.25, 1.5, 1.8], desc: v => `대시 거리 x${v}` },
+    { id: 'dash_ghost',  icon: '👻', name: '잔상 대시',   cap: 1.6, lv: [0.4, 0.7, 1.0],  desc: v => `대시 후 무적 시간 +${v}초` },
+    { id: 'dash_ram',    icon: '🐗', name: '돌진 박치기', cap: 1400, lv: [450, 600, 780], desc: v => `대시로 부딪힌 적을 날려버림 (힘 ${v})` },
+    { id: 'dash_quake',  icon: '🌋', name: '착지 충격',   cap: 300, lv: [100, 130, 165], desc: v => `대시가 끝나면 반경 ${v} 충격파` },
     { id: 'regen',       icon: '🌿', name: '재생',        cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 

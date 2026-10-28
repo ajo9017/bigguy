@@ -145,6 +145,12 @@
     if (performance.now() - attackBuf < 180) { attackBuf = -1; return true; }
     return false;
   }
+  let dashBuf = -1;
+  function pressDash() { dashBuf = performance.now(); Sfx.unlock(); }
+  function consumeDash() {
+    if (performance.now() - dashBuf < 180) { dashBuf = -1; return true; }
+    return false;
+  }
   function releaseInput() { keys.clear(); stick.id = null; stick.x = stick.y = 0; }
 
   // e.code를 써야 한글 입력 상태에서도 WASD가 동작한다
@@ -154,6 +160,7 @@
     if (e.repeat) return;
     keys.add(e.code);
     if (e.code === 'KeyJ' || e.code === 'KeyK' || e.code === 'Space') pressAttack();
+    if (e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') pressDash();
     if (game.picking && /^Digit[1-3]$/.test(e.code)) choose(+e.code.slice(5) - 1);
     if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && ui.records.classList.contains('hidden') && ui.chars.classList.contains('hidden')) startGame();
   });
@@ -178,6 +185,10 @@
 
   ui.btnAtk.addEventListener('pointerdown', e => { e.preventDefault(); pressAttack(); ui.btnAtk.classList.add('on'); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) ui.btnAtk.addEventListener(t, () => ui.btnAtk.classList.remove('on'));
+
+  const btnDash = $('btnDash');
+  btnDash.addEventListener('pointerdown', e => { e.preventDefault(); pressDash(); btnDash.classList.add('on'); });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) btnDash.addEventListener(t, () => btnDash.classList.remove('on'));
 
   $('btnStart').addEventListener('click', () => { Sfx.unlock(); startGame(); });
   $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(); });
@@ -625,7 +636,7 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     const ch = charById(selChar);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, dashCd: 0, dashT: 0, dashHit: null, giantT: 0, giant: 0, grow: 1, shieldT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
       attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
     if (ch.skill && ABIL[ch.skill]) {
       player.abil[ch.skill] = 1;
@@ -1063,6 +1074,42 @@
     p.grow += ((p.giant > 0 ? ABIL.giant.scale : 1) - p.grow) * Math.min(1, dt * 6);
     p.r = D.player.radius * p.grow;
     p.mass = D.player.mass * (p.ch.mass || 1) * ab('heavy', 1) * p.grow;
+
+    // 대시: 쿨타임이 차면 버튼으로 바라보는(또는 움직이는) 방향으로 돌진한다
+    const DS = D.player.dash;
+    const dashFull = DS.cooldown * ab('dash_cool', 1);
+    if (p.dashCd > 0) p.dashCd -= dt;
+    if (p.hitstun <= 0 && p.dashT <= 0 && p.dashCd <= 0 && consumeDash()) {
+      const mv = moveInput();
+      if (Math.hypot(mv.x, mv.y) > 0.2) p.face = Math.atan2(mv.y, mv.x);
+      p.dashT = DS.time; p.dashCd = dashFull; p.dashHit = new Set(); p.atk = null;
+      p.inv = Math.max(p.inv, DS.time + ab('dash_ghost', 0) + DS.inv);
+      ring(p.x, p.y, p.r, '#8fd3ff', p.r * 1.6);
+      Sfx.play('roar');
+    }
+    if (p.dashT > 0 && p.hitstun > 0) p.dashT = 0;
+    if (p.dashT > 0) {
+      p.dashT -= dt;
+      const sp = DS.speed * ab('dash_far', 1);
+      p.x += Math.cos(p.face) * sp * dt;
+      p.y += Math.sin(p.face) * sp * dt;
+      p.walk += dt * 30;
+      if (Math.random() < 0.8) burst(p.x, p.y, p.r * 0.6, '#bfe8ff', 1, 120);
+      const ram = ab('dash_ram', 0);
+      if (ram) for (const e of enemies) {
+        if (p.dashHit.has(e) || !activeEnemy(e)) continue;
+        const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
+        if (d > p.r + e.r + 10) continue;
+        p.dashHit.add(e);
+        hitEnemy(e, dx / d, dy / d, 4, ram, true);
+      }
+      if (p.dashT <= 0) {
+        p.vx *= 0.3; p.vy *= 0.3;
+        const q = ab('dash_quake', 0);
+        if (q) { pushAround(p, q, 3, 500, true); fx.shake = Math.max(fx.shake, 14); }
+      }
+      return;
+    }
 
     if (p.hitstun > 0) {
       p.hitstun -= dt;
@@ -2235,8 +2282,17 @@
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
 
+    // 대시 쿨타임: 터치 버튼 글자와 화면 왼쪽 위 게이지
+    const dFull = D.player.dash.cooldown * ab('dash_cool', 1), dLeft = Math.max(0, player.dashCd);
+    const dTxt = dLeft > 0 ? dLeft.toFixed(1) : '대시';
+    if (btnDash.textContent !== dTxt) { btnDash.textContent = dTxt; btnDash.classList.toggle('cool', dLeft > 0); }
+    if (!isTouch) {
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(16, 58, 90, 6);
+      ctx.fillStyle = dLeft > 0 ? '#6aa8d6' : '#8fe3ff'; ctx.fillRect(16, 58, 90 * (1 - Math.min(1, dLeft / dFull)), 6);
+    }
+
     // 보유 능력 아이콘. 몇 초마다 발동하는 능력은 남은 쿨타임을 시계 모양으로 덮고 초를 적는다
-    let ix = 16, iy = 62;
+    let ix = 16, iy = isTouch ? 62 : 70;
     const maxX = Math.max(140, W * 0.32);
     for (const [id, l] of Object.entries(player.abil)) {
       ctx.font = '20px system-ui, sans-serif';

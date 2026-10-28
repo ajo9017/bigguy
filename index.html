@@ -31,6 +31,9 @@
   #touch { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
   .tbtn { width: 104px; height: 104px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .55);
     background: rgba(255, 120, 60, .3); color: #fff; font-size: 19px; font-weight: 800; touch-action: none; }
+  #touch { display: flex; align-items: flex-end; gap: 14px; }
+  #btnDash { width: 76px; height: 76px; font-size: 16px; background: rgba(90, 190, 255, .3); position: relative; overflow: hidden; }
+  #btnDash.cool { color: rgba(255, 255, 255, .55); }
   .tbtn.on { background: rgba(255, 255, 255, .4); }
 
   /* 개선 요청 버튼 */
@@ -155,13 +158,14 @@
 <button id="btnChat">💬 개선 요청</button>
 
 <div id="touch" class="hidden">
+  <button class="tbtn" id="btnDash">대시</button>
   <button class="tbtn" id="btnAtk">공격</button>
 </div>
 
 <div id="title" class="overlay">
   <h1>BIG GUY</h1>
   <div class="sub">기둥 위에서 버텨라. 떨어지면 끝!</div>
-  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
+  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space · 대시 L / Shift<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
   <div class="nameRow">
     <label for="nameInput">이름</label>
     <input id="nameInput" maxlength="12" placeholder="랭킹에 표시될 이름" autocomplete="off" enterkeyhint="go">
