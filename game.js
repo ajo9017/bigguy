@@ -745,10 +745,11 @@
       if (d > bestD) { bestD = d; bestA = a; }
       if (d > 260) break;
     }
-    const e = makeEntity('enemy', def, Math.cos(bestA) * rr, Math.sin(bestA) * rr);
+    const e = makeEntity('enemy', def, def.boss ? 0 : Math.cos(bestA) * rr, def.boss ? 0 : Math.sin(bestA) * rr);
     e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0; e.zoneT = def.zone ? def.zone.every : 0;
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
-    e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
+    e.state = 'spawn'; e.z = def.boss ? 520 : -80; e.face = def.boss ? Math.atan2(player.y, player.x) : bestA + Math.PI;
+    if (def.boss) e.drop = true;
     if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
     const n = endlessN();
     if (n && !def.boss) {
@@ -1264,6 +1265,17 @@
     }
     e.st += dt;
     if (e.state === 'spawn') {
+      if (e.drop) {
+        const u = clamp(e.st / 0.55, 0, 1);
+        e.z = 520 * (1 - u * u);
+        if (u >= 1) {
+          e.z = 0; e.state = 'chase'; e.st = 0; e.drop = false;
+          fx.shake = Math.max(fx.shake, 28); fx.zoom = 0.08;
+          burst(e.x, e.y, 2, '#d8d2c0', 28, 420);
+          pushAround(e, 200, 4, 700, true, new Set([e]));
+        }
+        return;
+      }
       const u = clamp(e.st / 0.7, 0, 1);
       e.z = -80 * (1 - u) * (1 - u);
       if (u >= 1) { e.z = 0; e.state = 'chase'; e.st = 0; }
