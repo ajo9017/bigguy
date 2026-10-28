@@ -44,7 +44,10 @@ Closes #12
 
 클라우드 세션(핸드폰 Claude 앱의 Code 탭 등)이라 `main`이 아닌 작업 브랜치에 있거나 `main`에 바로 push할 수 없으면:
 - 작업 브랜치에 push하고 PR을 만든다. PR 본문에도 `Closes #번호`를 넣는다
-- 사용자에게 "PR을 Merge하면 1~2분 뒤 게임에 반영된다"고 알린다. 게임은 `main`에 합쳐져야 바뀐다
+- **PR을 바로 Merge한다.** 주인이 "반영하면 머지까지 해서 실제로 업데이트해줘"라고 미리 허락했다. 게임은 `main`에 합쳐져야 바뀐다
+  - GitHub 도구의 merge(merge 방식, 확인한 head SHA 지정)로 합친다. 충돌이 나면 `main`을 작업 브랜치에 merge해서 풀고 다시 테스트한 뒤 push하고 Merge한다
+  - Merge한 PR의 브랜치는 끝난 것이다. 다음 작업은 같은 브랜치 이름을 최신 `main`에서 다시 시작한다
+- Merge한 뒤 1~2분 기다렸다가 https://ajo9017.github.io/bigguy/ 의 `game.js`/`data.js`에 바뀐 내용이 들어갔는지 확인한다
 
 브라우저로 화면을 띄울 수 없는 환경이면 최소한 `node --check game.js && node --check data.js`로 문법 오류를 확인하고, 화면 확인을 못 했다고 보고에 적는다.
 
