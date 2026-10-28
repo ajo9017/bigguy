@@ -398,7 +398,7 @@ window.GAME_DATA = {
   waves: [
     { grunt: 3 },                                              // 1
     { grunt: 5 },                                              // 2
-    { grunt: 4, charger: 2, runner: 2 },                       // 3 날쌘이 등장
+    { grunt: 4, charger: 1, runner: 2 },                       // 3 날쌘이 등장
     { grunt: 5, charger: 2, brute: 1, runner: 2 },             // 4
     { boss_random: 1, grunt: 3 },                                // 5 보스: 왕졸개
     { grunt: 4, charger: 3, tank: 2 },                         // 6 철갑병 등장
