@@ -444,7 +444,7 @@ window.GAME_DATA = {
     { boss_random: 1, grunt: 1 },                                // 5 보스: 왕졸개
     { grunt: 4, charger: 3, tank: 2 },                         // 6 철갑병 등장
     { grunt: 5, brute: 2, tank: 2, runner: 3 },                // 7
-    { charger: 3, rusher: 3, brute: 2, runner: 2 },            // 8 번개 돌격병 등장
+    { charger: 3, rusher: 3, brute: 2, runner: 1 },            // 8 번개 돌격병 등장
     { grunt: 6, rusher: 3, tank: 2, brute: 2 },                // 9
     { boss_random: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
     { grunt: 5, spiky: 4, tank: 2, rusher: 3 },                // 11 가시돌이 등장
