@@ -226,14 +226,23 @@
     return Math.round(v * 100) / 100;
   }
   const ab = (id, dflt) => { const l = lvl(id); return l ? abVal(ABIL[id], l) : dflt; };
+  // 이 판에서 올린 전용 능력 레벨 합 (시너지 계산용)
+  const ownedCount = () => Object.entries(player.abil).reduce((s, [id, l]) => s + (ABIL[id].only ? l : 0), 0);
   const abilSummary = () => Object.entries(player.abil).map(([id, l]) => `${ABIL[id].name} Lv${l}`).join(', ');
 
   function openPick() {
     // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id)));
+    const pool = D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id));
     if (!pool.length) { startWave(game.wave + 1); return; }
-    game.choices = pool.slice(0, 3);
+    // 전용 능력은 뽑힐 확률이 D.onlyWeight배(가중치 추첨, 중복 없이 3개)
+    const picked = [];
+    while (picked.length < 3 && pool.length) {
+      let r = Math.random() * pool.reduce((s, a) => s + (a.only ? D.onlyWeight : 1), 0), k = 0;
+      for (; k < pool.length - 1; k++) { r -= pool[k].only ? D.onlyWeight : 1; if (r < 0) break; }
+      picked.push(pool.splice(k, 1)[0]);
+    }
+    game.choices = picked;
     game.picking = true;
     releaseInput();
     ui.pickTitle.textContent = `STAGE ${game.wave + 1} CLEAR! · 능력을 하나 고르세요`;
@@ -1427,6 +1436,14 @@
         if (e.pct < 30) kb *= ab('g_first', 1);
         if (e.pct >= 100) kb *= ab('w_spirit', 1);
         if (e.burnT > 0) kb *= ab('c_pan', 1);
+        // 전용 능력 2차(캐릭터별 개성 + 시너지)
+        if (p.pct < 20) kb *= ab('b_encore', 1);
+        if (lvl('n_blur') && p.dashT > 0) kb *= ab('n_blur');
+        if (a.finisher) kb *= ab('s_thrust', 1);
+        if (e.pct >= 60) kb *= ab('g_charge', 1);
+        if (p.pct >= 60) kb *= ab('w_comeback', 1);
+        if (e.burnT > 0 && a.finisher) kb *= ab('c_sear', 1);
+        kb *= 1 + Math.max(0, ownedCount() - D.onlySynergy.from) * D.onlySynergy.pct / 100; // 전용 능력을 많이 올린 시너지
         if (lvl('n_backstab') && Math.cos(e.face) * fxv + Math.sin(e.face) * fyv > 0.3) { kb *= ab('n_backstab'); text(e.x, e.y - e.r, e.r * 3, '암습!', '#d6d6e8', 20); }
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
         // 캐릭터 개성: 잽은 오래 경직(stunMul), 강타는 불붙임(finBurn)

@@ -274,6 +274,9 @@ window.GAME_DATA = {
   // melee: true = 근접 공격에서만 효과가 있는 능력(원거리 캐릭터 선택지에서 제외)
   abilityMaxLevel: 20,
   abilityGrow: 0.5,
+  // 전용 능력(only)이 선택지에 뜰 확률 배율, 전용 능력 레벨 합이 from을 넘으면 레벨마다 공격 넉백 +pct% (시너지)
+  onlyWeight: 1.5,
+  onlySynergy: { from: 4, pct: 2 },
   abilities: [
     { id: 'iron_fist',   icon: '👊', name: '강철 주먹',   lv: [1.2, 1.4, 1.65],  desc: v => `공격 넉백 x${v}` },
     { id: 'pump',        icon: '💪', name: '근육 펌핑',   lv: [1.3, 1.6, 2.0],   desc: v => `공격으로 올리는 피해% x${v}` },
@@ -393,6 +396,13 @@ window.GAME_DATA = {
     { only: 'archer', id: 'ar_fire',   max: 6, cap: 30, icon: '🔥', name: '불화살',    lv: [5, 8, 11],      desc: v => `강궁 화살에 맞은 적이 3초간 불타 초당 피해% +${v}` },
     { only: 'archer', id: 'ar_pierce', max: 1, icon: '🪶', name: '관통 화살', lv: [1],             desc: v => '강궁 화살이 적을 관통함' },
     { only: 'archer', id: 'ar_flow',   max: 2, grow: 1, icon: '🌲', name: '속사',      lv: [1, 2],          desc: v => `${v}타 일찍 화살을 쏨 (5타째 → ${5 - v}타째)` },
+    // 2차 전용 능력 (개성 + 시너지: 전용 능력 레벨 합이 onlySynergy.from을 넘으면 공격 넉백 보너스)
+    { only: 'bigguy', id: 'b_encore', max: 6, cap: 3, icon: '🎤', name: '앵콜 무대', lv: [1.3, 1.6, 1.9], desc: v => `내 피해%가 20 미만일 때 공격 넉백 x${v}` },
+    { only: 'ninja', id: 'n_blur', max: 6, cap: 3.5, icon: '🌫️', name: '잔상 돌진', lv: [1.3, 1.6, 1.9], desc: v => `대시하는 동안 때리면 넉백 x${v}` },
+    { only: 'sumo', id: 's_thrust', max: 6, cap: 2.5, icon: '🙌', name: '장대 밀기', lv: [1.2, 1.4, 1.6], desc: v => `3타째 넉백 x${v}` },
+    { only: 'general', id: 'g_charge', max: 6, cap: 2.5, icon: '🐎', name: '기마 돌격', lv: [1.2, 1.4, 1.6], desc: v => `피해% 60 이상인 적에게 넉백 x${v}` },
+    { only: 'wrestler', id: 'w_comeback', max: 6, cap: 2.5, icon: '🔥', name: '역전의 기세', lv: [1.2, 1.4, 1.6], desc: v => `내 피해%가 60 이상이면 공격 넉백 x${v}` },
+    { only: 'chef', id: 'c_sear', max: 6, cap: 3.5, icon: '🥩', name: '시어링', lv: [1.3, 1.6, 1.9], desc: v => `불타는 적에게 3타째를 치면 넉백 x${v}` },
   ],
 
   // 캐릭터 10종(근접 7 + 원거리 3). unlock = 해금 업적(없으면 처음부터 사용 가능): stat(bestWave 최고 웨이브, bestScore 최고 점수, totalKills 누적 처치, plays 플레이 횟수) 값이 need 이상이면 해금. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
