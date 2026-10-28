@@ -158,7 +158,7 @@
 
   // e.code를 써야 한글 입력 상태에서도 WASD가 동작한다
   addEventListener('keydown', e => {
-    if (e.target.closest && e.target.closest('textarea, input')) return;
+    if (chatOpen || e.isComposing || e.target.closest && e.target.closest('textarea, input')) return;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     keys.add(e.code);
@@ -273,15 +273,19 @@
     releaseInput();
     ui.chat.classList.remove('hidden');
     ui.btnChat.classList.add('hidden');
+    // 능력 선택 화면이 뒤에 열려 있으면 포커스와 키보드(한글 IME) 입력을 가로채지 못하게 잠근다
+    ui.pick.inert = true;
     // 이름 입력칸 등에 남은 포커스를 먼저 빼고, 탭 직후(사용자 동작 안)에 바로 포커스를 줘야 모바일에서 키보드가 이 입력칸으로 뜬다
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     ui.chatText.focus({ preventScroll: true });
+    if (document.activeElement !== ui.chatText) requestAnimationFrame(() => ui.chatText.focus({ preventScroll: true }));
     renderChatHist();
   }
   function closeChat() {
     chatOpen = false;
     ui.chat.classList.add('hidden');
     ui.btnChat.classList.remove('hidden');
+    ui.pick.inert = false;
     ui.chatText.blur();
     resize();
   }
