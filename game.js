@@ -713,11 +713,18 @@
 
   // 스테이지 시스템: 스테이지의 적을 모두 처치하면 클리어, 능력을 고르고 다음 스테이지로 간다. game.wave는 현재 스테이지-1이다
   // 지금 스테이지의 적 구성을 queue에 채운다. 보스는 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
+  // 지금 스테이지에 나올 수 있는 보스 중 하나를 무작위로 고른다
+  function randomBoss() {
+    const st = game.wave + 1;
+    const ids = Object.keys(D.enemies).filter(k => { const d = D.enemies[k]; return d.boss && d.stages && st >= d.stages[0] && st <= d.stages[1]; });
+    return ids.length ? ids[Math.floor(Math.random() * ids.length)] : 'boss_king';
+  }
+
   function fillQueue() {
     const spec = waveSpec(game.wave);
     const isBoss = k => D.enemies[k] && D.enemies[k].boss;
     const q = [];
-    for (const k in spec) for (let n = 0; n < spec[k]; n++) q.push(k);
+    for (const k in spec) for (let n = 0; n < spec[k]; n++) q.push(k === 'boss_random' ? randomBoss() : k);
     shuffle(q);
     const first = game.filled !== game.wave;
     game.filled = game.wave;
@@ -766,7 +773,7 @@
     e.slamT = fs('slam'); e.sumT = fs('summon'); e.zoneT = fs('zone');
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = def.boss ? 520 : -80; e.face = def.boss ? Math.atan2(player.y, player.x) : bestA + Math.PI;
-    if (def.boss) e.drop = true;
+    if (def.boss) { e.drop = true; e.mass *= 1 + 0.05 * Math.max(0, game.wave + 1 - (def.stages ? def.stages[0] : 0)); } // 보스는 스테이지가 높을수록 묵직해진다
     if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
     const n = endlessN();
     if (n && !def.boss) {

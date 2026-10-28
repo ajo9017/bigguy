@@ -114,40 +114,60 @@ window.GAME_DATA = {
       attack: { range: 60, windup: 0.8, recover: 1.0, damage: 16, force: 900 },
     },
 
-    // 보스: 5웨이브마다 하나씩, 매번 다른 보스가 나온다 (반복 없음). boss: true
+    // 보스: 5웨이브마다 하나씩. 웨이브에 boss_random을 적으면 stages([처음, 끝] 스테이지)에 맞는 보스 중 무작위로 나온다. boss: true
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
+      stages: [5, 15],
       name: '왕졸개', color: '#4fae3f', radius: 46, mass: 8, speed: 70, behavior: 'walker', score: 2000, boss: true, crown: true,
       attack: { range: 80, windup: 0.8, recover: 0.9, damage: 22, force: 1120 },
       summon: { every: 6, type: 'grunt', count: 2 },
     },
     boss_rhino: {
+      stages: [5, 20],
       name: '철벽 대왕 코뿔소', color: '#7d7d8c', radius: 50, mass: 11, speed: 70, behavior: 'charger', score: 3000, boss: true, horn: true,
       attack: { range: 340, windup: 0.9, dashSpeed: 820, dashTime: 0.8, recover: 1.0, damage: 26, force: 1400 },
     },
     boss_quake: {
+      stages: [10, 25],
       name: '지진 거인', color: '#b5733a', radius: 54, mass: 12, speed: 55, behavior: 'walker', score: 4000, boss: true, teeth: true,
       attack: { range: 88, windup: 0.9, recover: 1.0, damage: 26, force: 1344 },
       slam: { every: 5, radius: 190, windup: 1.0, damage: 24, force: 1232 },
     },
     boss_storm: {
+      stages: [15, 30],
       name: '질풍 닌자왕', color: '#33334f', radius: 36, mass: 6, speed: 130, behavior: 'charger', score: 5000, boss: true, crown: true,
       attack: { range: 300, windup: 0.5, dashSpeed: 1000, dashTime: 0.6, recover: 0.5, damage: 19, force: 1232 },
       summon: { every: 6, type: 'ninja', count: 2 },
       zone: { every: 4, radius: 95, windup: 1.0, damage: 19, force: 1120, count: 2 },
     },
     boss_ogre: {
+      stages: [20, 30],
       name: '대왕 오우거', color: '#3f8a3a', radius: 56, mass: 13, speed: 70, behavior: 'walker', score: 6000, boss: true, teeth: true, crown: true,
       attack: { range: 92, windup: 0.7, recover: 0.8, damage: 30, force: 1456 },
       slam: { every: 4, radius: 210, windup: 0.9, damage: 26, force: 1344 },
       summon: { every: 8, type: 'ogre', count: 1 },
     },
     boss_reaper: {
+      stages: [25, 30],
       name: '기둥의 파괴신', color: '#8a2fb0', radius: 52, mass: 14, speed: 90, behavior: 'charger', score: 9000, boss: true, horn: true, crown: true, spikes: true,
       attack: { range: 360, windup: 0.6, dashSpeed: 1050, dashTime: 0.7, recover: 0.7, damage: 34, force: 1624 },
       slam: { every: 4, radius: 230, windup: 0.8, damage: 30, force: 1456 },
       summon: { every: 7, type: 'reaper', count: 1 },
       zone: { every: 3, radius: 105, windup: 0.9, damage: 22, force: 1232, count: 3 },
+    },
+    // 장판형 보스: zone = 플레이어 발밑에 장판을 여러 개 깐다
+    boss_witch: {
+      stages: [5, 20],
+      name: '장판 마녀왕', color: '#a03a98', radius: 40, mass: 7, speed: 75, behavior: 'walker', score: 2500, boss: true, crown: true,
+      attack: { range: 76, windup: 0.8, recover: 0.9, damage: 20, force: 1050 },
+      zone: { every: 3.5, radius: 90, windup: 1.1, damage: 17, force: 1000, count: 2 },
+      summon: { every: 8, type: 'runner', count: 2 },
+    },
+    boss_inferno: {
+      stages: [15, 30],
+      name: '불바다 군주', color: '#d9532a', radius: 48, mass: 10, speed: 80, behavior: 'charger', score: 5500, boss: true, horn: true, spikes: true,
+      attack: { range: 330, windup: 0.7, dashSpeed: 900, dashTime: 0.7, recover: 0.8, damage: 26, force: 1300 },
+      zone: { every: 2.8, radius: 100, windup: 1.0, damage: 20, force: 1150, count: 3 },
     },
   },
 
@@ -254,32 +274,32 @@ window.GAME_DATA = {
     { grunt: 5 },                                              // 2
     { grunt: 4, charger: 2, runner: 2 },                       // 3 날쌘이 등장
     { grunt: 5, charger: 2, brute: 1, runner: 2 },             // 4
-    { boss_king: 1, grunt: 3 },                                // 5 보스: 왕졸개
+    { boss_random: 1, grunt: 3 },                                // 5 보스: 왕졸개
     { grunt: 4, charger: 3, tank: 2 },                         // 6 철갑병 등장
     { grunt: 5, brute: 2, tank: 2, runner: 3 },                // 7
     { charger: 3, rusher: 3, brute: 2, runner: 2 },            // 8 번개 돌격병 등장
     { grunt: 6, rusher: 3, tank: 2, brute: 2 },                // 9
-    { boss_rhino: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
+    { boss_random: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
     { grunt: 5, spiky: 4, tank: 2, rusher: 3 },                // 11 가시돌이 등장
     { charger: 4, brute: 3, spiky: 3, runner: 4 },             // 12
     { rhino: 2, spiky: 3, tank: 3, grunt: 5 },                 // 13 코뿔소 등장
     { rhino: 2, rusher: 4, brute: 3, spiky: 3 },               // 14
-    { boss_quake: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
+    { boss_random: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
     { ninja: 4, rhino: 2, tank: 3, mage: 2 },                  // 16 닌자, 마법사 등장
     { ninja: 5, rusher: 4, brute: 3, mage: 2 },                // 17
     { golem: 2, ninja: 4, rhino: 2, tank: 3 },                 // 18 골렘 등장
     { golem: 2, ninja: 4, rusher: 4, mage: 2, witch: 1 },      // 19 장판 마녀 등장
-    { boss_storm: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
+    { boss_random: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
     { hornet: 8, golem: 2, rhino: 3, spiky: 4 },               // 21 말벌 등장
     { hornet: 8, mage: 3, witch: 2, tank: 4, rhino: 3 },       // 22
     { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4 },    // 23
     { ogre: 3, hornet: 6, golem: 2, ninja: 5 },                // 24 오우거 등장
-    { boss_ogre: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
+    { boss_random: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
     { ogre: 4, golem: 3, mage: 3, witch: 2, hornet: 5 },       // 26
     { reaper: 3, ogre: 3, golem: 3, spiky: 5 },                // 27 저승사자 등장
     { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6 },     // 28
     { reaper: 4, ogre: 4, witch: 3, mage: 3, rusher: 5 },      // 29
-    { boss_reaper: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
+    { boss_random: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
   ],
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
