@@ -276,6 +276,7 @@
     const labels = i.labels.map(l => l.name);
     if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : ['done', '✅ 반영됨'];
     if (labels.includes('작업중')) return ['work', '🔧 작업 중'];
+    if (labels.includes('반영대기')) return ['work', '🕒 반영 예정'];
     if (labels.includes('일부 반영')) return ['part', '🟡 일부 반영'];
     return ['wait', '⏳ 대기 중'];
   }
