@@ -268,7 +268,6 @@ window.GAME_DATA = {
     { id: 'chain',       icon: '🔗', name: '연쇄 유지',   cap: 6, lv: [1.6, 2.2, 3],     desc: v => `낙하 연쇄 점수 유지 시간 ${v}초` },
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
     { id: 'shield',      icon: '🔮', name: '방패막',      cap: 2.5, lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
-    { id: 'gold_hand',   icon: '🪙', name: '황금손',      cap: 3, lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
     // 대시 능력: 대시 버튼은 처음부터 있고, 이 능력들이 대시를 강화한다
     { id: 'dash_cool',   icon: '⏱️', name: '대시 재충전', cap: 0.35, lv: [0.8, 0.65, 0.5], desc: v => `대시 쿨타임 x${v}` },
     { id: 'dash_far',    icon: '🏃', name: '멀리 대시',   cap: 2.6, lv: [1.25, 1.5, 1.8], desc: v => `대시 거리 x${v}` },
@@ -293,44 +292,41 @@ window.GAME_DATA = {
     { id: 'regen',       icon: '🌿', name: '재생',       cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 
-  // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
-  gold: { perScore: 250, perWave: 0.8 },
-
-  // 캐릭터 10종(근접 7 + 원거리 3). price 0 = 처음부터 사용 가능. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
+  // 캐릭터 10종(근접 7 + 원거리 3). unlock = 해금 업적(없으면 처음부터 사용 가능): stat(bestWave 최고 웨이브, bestScore 최고 점수, totalKills 누적 처치, plays 플레이 횟수) 값이 need 이상이면 해금. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
   // attack = 기본 공격 수치를 덮어씀(player.attack 기준), mass/speed = 몸무게/이동속도 배율.
   // look = 외형(skin 피부, coat 겉옷, trim 깃/띠, shorts 바지, sock 양말, hair 머리색, band 머리띠, glove 주먹 색, mark 등 글자)
   //   + 장식: hat('toque' 요리사모, 'pirate' 해적모자, 'topknot' 상투, 'ears' 뾰족귀, 'wizard' 마법사 모자, 'helmet' 철모, 'hood' 후드), mask(복면), beard(수염), fangs(송곳니), cape(망토), bald(민머리), shades(선글라스)
   characters: [
-    { id: 'bigguy', name: '빅가이', price: 0, skill: null, desc: '축제를 사랑하는 근육질 아저씨. 균형 잡힌 기본 캐릭터.',
+    { id: 'bigguy', name: '빅가이', skill: null, desc: '축제를 사랑하는 근육질 아저씨. 균형 잡힌 기본 캐릭터.',
       look: {} },
-    { id: 'ninja', name: '쾌속 닌자', price: 100, skill: 'quick_feet', speed: 1.05, dashCool: 0.6, desc: '그림자처럼 빠르다. 대시 쿨타임이 짧고, 3타째는 번개처럼 파고들어 벤다.',
+    { id: 'ninja', name: '쾌속 닌자', unlock: { stat: 'plays', need: 3, text: '3판 플레이' }, skill: 'quick_feet', speed: 1.05, dashCool: 0.6, desc: '그림자처럼 빠르다. 대시 쿨타임이 짧고, 3타째는 번개처럼 파고들어 벤다.',
       attack: { range: 70, damage: 5, knockback: 360, duration: 0.19, active: [0.03, 0.1], comboWindow: 0.4, finisherMul: 2.3, lunge: 100, finLunge: 2.2 },
       look: { skin: '#d9a273', coat: '#2b2d42', trim: '#d62839', shorts: '#1c1d2b', sock: '#d62839', band: '#d62839', mask: '#2b2d42', mark: '影' } },
-    { id: 'sumo', name: '스모 장사', price: 150, skill: 'heavy', mass: 1.25, speed: 0.9, desc: '산 같은 몸. 느리지만 한 방이 묵직하고, 3타째는 발을 굴러 주변을 밀어낸다.',
+    { id: 'sumo', name: '스모 장사', unlock: { stat: 'bestWave', need: 5, text: '웨이브 5 도달' }, skill: 'heavy', mass: 1.25, speed: 0.9, desc: '산 같은 몸. 느리지만 한 방이 묵직하고, 3타째는 발을 굴러 주변을 밀어낸다.',
       attack: { range: 72, arc: 130, damage: 8, knockback: 540, duration: 0.34, active: [0.1, 0.2], comboWindow: 0.5, finisherMul: 1.8, lunge: 40, finQuake: 130 },
       look: { skin: '#e0b08a', coat: '#e8e0cc', trim: '#7a5230', shorts: '#2f6fb3', sock: '#e0b08a', hair: '#17171c', band: '#e8e0cc', hat: 'topknot', mark: '力' } },
-    { id: 'boxer', name: '복서', price: 150, skill: 'rapid', desc: '번개 같은 잽. 맞은 적이 오래 굳어서 연타가 이어지고, 3타째 훅은 아주 강하다.',
+    { id: 'boxer', name: '복서', unlock: { stat: 'totalKills', need: 60, text: '누적 60마리 처치' }, skill: 'rapid', desc: '번개 같은 잽. 맞은 적이 오래 굳어서 연타가 이어지고, 3타째 훅은 아주 강하다.',
       attack: { range: 74, arc: 80, damage: 4, knockback: 330, duration: 0.15, active: [0.03, 0.09], comboWindow: 0.35, finisherMul: 2.8, lunge: 60, stunMul: 1.6 },
       look: { skin: '#b9774c', coat: '#c1121f', trim: '#ffd84a', shorts: '#c1121f', sock: '#ffffff', band: '#ffd84a', glove: '#e63946', mark: '拳' } },
-    { id: 'general', name: '창술 장군', price: 200, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁지만 3타째 돌려찌르기는 더 멀리 닿는다.',
+    { id: 'general', name: '창술 장군', unlock: { stat: 'bestWave', need: 8, text: '웨이브 8 도달' }, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁지만 3타째 돌려찌르기는 더 멀리 닿는다.',
       attack: { range: 128, growReach: 0.25, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30, finRange: 1.35 },
       look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
-    { id: 'wrestler', name: '프로 레슬러', price: 300, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리고, 3타째는 온몸을 던져 더 강하게 날린다.',
+    { id: 'wrestler', name: '프로 레슬러', unlock: { stat: 'bestScore', need: 3000, text: '최고 점수 3000' }, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리고, 3타째는 온몸을 던져 더 강하게 날린다.',
       attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.5, lunge: 150, finLunge: 1.8 },
       look: { skin: '#d08a5a', coat: '#ffcf33', trim: '#1b1b8f', shorts: '#1b1b8f', sock: '#ffcf33', hair: '#6b3a1a', band: '#d62828', shades: true, glove: '#d62828', mark: '王' } },
-    { id: 'chef', name: '불꽃 요리사', price: 300, skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커지고, 3타째는 맞은 적을 불태운다.',
+    { id: 'chef', name: '불꽃 요리사', unlock: { stat: 'bestWave', need: 10, text: '웨이브 10 도달' }, skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커지고, 3타째는 맞은 적을 불태운다.',
       attack: { range: 82, arc: 90, damage: 5, knockback: 400, duration: 0.24, active: [0.05, 0.14], comboWindow: 0.45, finisherMul: 2.2, lunge: 70, finBurn: 8 },
       look: { skin: '#e0a679', coat: '#ffffff', trim: '#d62828', shorts: '#3a3a4a', sock: '#ffffff', hair: '#5a3a1a', band: '#ffffff', hat: 'toque', mark: '肉' } },
     // 원거리 캐릭터: attack은 1~4타 근접 수치, 5타째(finisher, ranged.every로 조절)만 attack.ranged(발사체 설정)의 전용기술(fin)로 바뀐다. ranged.range = 발사체 최대 사거리
-    { id: 'wizard', name: '마법사', price: 350, skill: 'execute', speed: 0.95, desc: '지팡이로 때리고, 5타째는 마력 구슬을 날린다. 전용기술 [폭발 구슬]은 맞은 곳에서 터져 주변을 날려버린다.',
+    { id: 'wizard', name: '마법사', unlock: { stat: 'totalKills', need: 250, text: '누적 250마리 처치' }, skill: 'execute', speed: 0.95, desc: '지팡이로 때리고, 5타째는 마력 구슬을 날린다. 전용기술 [폭발 구슬]은 맞은 곳에서 터져 주변을 날려버린다.',
       attack: { range: 80, arc: 90, damage: 4, knockback: 240, duration: 0.3, active: [0.07, 0.15], comboWindow: 0.5, finisherMul: 1.4, lunge: 40,
         ranged: { range: 340, speed: 480, radius: 14, color: '#b57cff', shape: 'orb', fin: { boom: 100, color: '#ff7ce8', speed: 420, radius: 22 } } },
       look: { skin: '#e0b08a', coat: '#4b2e8a', trim: '#ffd84a', shorts: '#2a1a55', sock: '#2a1a55', hair: '#d8d8e8', band: '#ffd84a', beard: '#d8d8e8', hat: 'wizard', mark: '魔' } },
-    { id: 'soldier', name: '군인', price: 450, skill: 'rapid', desc: '개머리판으로 때리고, 5타째는 소총을 쏜다. 전용기술 [저격탄]은 크고 빠른 총알 1발을 쏜다.',
+    { id: 'soldier', name: '군인', unlock: { stat: 'bestWave', need: 15, text: '웨이브 15 도달' }, skill: 'rapid', desc: '개머리판으로 때리고, 5타째는 소총을 쏜다. 전용기술 [저격탄]은 크고 빠른 총알 1발을 쏜다.',
       attack: { range: 76, arc: 80, damage: 3, knockback: 230, duration: 0.2, active: [0.04, 0.1], comboWindow: 0.4, finisherMul: 1.2, lunge: 40,
         ranged: { range: 370, speed: 980, radius: 7, color: '#ffe37a', shape: 'bullet', fin: { count: 1, radius: 11, speed: 1150 } } },
       look: { skin: '#c98a5c', coat: '#4f6b3a', trim: '#33472a', shorts: '#3b4f2b', sock: '#2a2a22', hair: '#2a1a0f', band: '#33472a', hat: 'helmet', glove: '#2a2a22', mark: '兵' } },
-    { id: 'archer', name: '궁수', price: 500, skill: 'long_reach', desc: '활로 후려치고, 5타째는 화살을 쏜다. 전용기술 [강궁]은 굵은 화살 1발을 쏜다.',
+    { id: 'archer', name: '궁수', unlock: { stat: 'plays', need: 25, text: '25판 플레이' }, skill: 'long_reach', desc: '활로 후려치고, 5타째는 화살을 쏜다. 전용기술 [강궁]은 굵은 화살 1발을 쏜다.',
       attack: { range: 84, arc: 70, damage: 4, knockback: 270, duration: 0.28, active: [0.06, 0.14], comboWindow: 0.45, finisherMul: 1.5, lunge: 40,
         ranged: { range: 430, speed: 820, radius: 9, color: '#f4e3b0', shape: 'arrow', fin: { count: 1, radius: 12, speed: 950 } } },
       look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },

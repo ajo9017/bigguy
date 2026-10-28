@@ -136,6 +136,7 @@
   #chars { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); background: rgba(8, 8, 16, .85); }
   .charBox { width: min(560px, 100%); background: #1d1f38; border-radius: 18px; padding: 16px; box-sizing: border-box; border: 2px solid #3d4175; text-align: left; }
   .charHead { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+  .charUnlock { font-size: 12px; color: #ffd84a; margin-top: 3px; }
   .charHead .gold { color: #ffd84a; }
   #charList { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
   .charCard { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 2px solid transparent; }
@@ -173,7 +174,7 @@
   <div class="row">
     <button class="big" id="btnStart">시작</button>
     <button class="ghost" id="btnRec">🏆 랭킹</button>
-    <button class="ghost" id="btnChars">👤 캐릭터 <span id="goldTitle"></span></button>
+    <button class="ghost" id="btnChars">👤 캐릭터</button>
   </div>
 </div>
 
@@ -189,8 +190,8 @@
 
 <div id="chars" class="overlay hidden">
   <div class="charBox">
-    <div class="charHead"><span>👤 캐릭터 (<span id="charNow"></span>)</span><span class="gold" id="goldNow"></span></div>
-    <div class="chatNote">게임이 끝나면 점수와 웨이브에 따라 골드를 얻어요. 캐릭터마다 시작 능력과 공격 방식이 달라요.</div>
+    <div class="charHead"><span>👤 캐릭터 (<span id="charNow"></span>)</span></div>
+    <div class="chatNote">업적을 달성하면 캐릭터가 하나씩 해금돼요. 캐릭터마다 시작 능력과 공격 방식이 달라요.</div>
     <div id="charList"></div>
     <button class="ghost" id="charClose">닫기</button>
   </div>

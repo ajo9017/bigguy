@@ -20,7 +20,7 @@
     pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'), chatSend: $('chatSend'), chatMsg: $('chatMsg'),
     ownerToggle: $('ownerToggle'), ownerRow: $('ownerRow'), ownerCode: $('ownerCode'),
-    chars: $('chars'), charList: $('charList'), goldNow: $('goldNow'), goldTitle: $('goldTitle'), charNow: $('charNow'),
+    chars: $('chars'), charList: $('charList'), charNow: $('charNow'),
     records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'), myName: $('myName'), nameInput: $('nameInput'),
   };
 
@@ -402,15 +402,22 @@
   }
   let records = loadRecords();
 
-  // ---------- 골드와 캐릭터 ----------
+  // ---------- 캐릭터 해금(업적) ----------
   const CHARS = D.characters;
   const charById = id => CHARS.find(c => c.id === id) || CHARS[0];
-  let gold = Math.max(0, Math.floor(+storage.get('bigguy.gold', 0)) || 0);
   let owned = new Set([CHARS[0].id, ...[].concat(storage.get('bigguy.chars', [])).filter(id => CHARS.some(c => c.id === id))]);
   let selChar = owned.has(storage.get('bigguy.char', '')) ? storage.get('bigguy.char', '') : CHARS[0].id;
   const saveChars = () => {
-    storage.set('bigguy.gold', gold); storage.set('bigguy.chars', [...owned]); storage.set('bigguy.char', selChar);
+    storage.set('bigguy.chars', [...owned]); storage.set('bigguy.char', selChar);
   };
+  const statOf = stat => stat === 'bestScore' ? (records.best ? records.best.score : 0) : (records[stat] || 0);
+  // 업적을 달성한 캐릭터를 해금하고, 새로 해금된 캐릭터 목록을 돌려준다
+  function checkUnlocks() {
+    const fresh = CHARS.filter(c => !owned.has(c.id) && (!c.unlock || statOf(c.unlock.stat) >= c.unlock.need));
+    fresh.forEach(c => owned.add(c.id));
+    if (fresh.length) saveChars();
+    return fresh;
+  }
 
   const fmtTime = s => `${Math.floor(s / 60)}분 ${Math.floor(s % 60)}초`;
   const fmtDate = t => {
@@ -549,8 +556,6 @@
 
   // ---------- 캐릭터 선택 화면 ----------
   function updateGoldUi() {
-    ui.goldTitle.textContent = `🪙 ${gold}`;
-    ui.goldNow.textContent = `🪙 ${gold}`;
     ui.charNow.textContent = charById(selChar).name;
   }
 
@@ -609,15 +614,15 @@
       if (sel) { btn.textContent = '선택됨'; btn.disabled = true; }
       else if (has) { btn.textContent = '선택'; btn.addEventListener('click', () => { selChar = ch.id; saveChars(); renderChars(); }); }
       else {
-        btn.textContent = `🪙 ${ch.price} 구매`;
-        btn.disabled = gold < ch.price;
-        btn.addEventListener('click', () => {
-          if (gold < ch.price || owned.has(ch.id)) return;
-          gold -= ch.price; owned.add(ch.id); selChar = ch.id; saveChars(); Sfx.play('pick'); renderChars();
-        });
+        const u = ch.unlock;
+        btn.textContent = '🔒 잠김';
+        btn.disabled = true;
+        const un = document.createElement('div'); un.className = 'charUnlock';
+        un.textContent = `🏅 ${u.text} (${Math.min(statOf(u.stat), u.need)}/${u.need})`;
+        info.appendChild(un);
       }
-      info.append(nm, ds, sk);
-      if (at.textContent) info.appendChild(at);
+      info.prepend(nm, ds, sk);
+      if (at.textContent) info.insertBefore(at, info.children[3] || null);
       card.append(cv, info, btn);
       ui.charList.appendChild(card);
       drawPreview(cv, ch);
@@ -625,6 +630,7 @@
   }
   for (const id of ['btnChars', 'btnChars2']) $(id).addEventListener('click', () => { Sfx.unlock(); openChars(); });
   $('charClose').addEventListener('click', () => { ui.chars.classList.add('hidden'); ui.btnChat.classList.remove('hidden'); });
+  checkUnlocks();
   updateGoldUi();
 
   // ---------- 게임 흐름 ----------
@@ -675,15 +681,12 @@
     r.history.unshift(entry);
     r.history = r.history.slice(0, 30);
     storage.set('bigguy.records', r);
-    const earned = Math.round((entry.score / D.gold.perScore + entry.wave * D.gold.perWave) * ab('gold_hand', 1));
-    gold += earned;
-    saveChars();
-    updateGoldUi();
+    const fresh = checkUnlocks();
 
     ui.overStats.innerHTML = (isNew && entry.score > 0 ? '<div class="newrec">🏆 신기록!</div>' : '') +
       `점수 <b>${entry.score}</b> · WAVE ${entry.wave} · 처치 ${entry.kills} · ${fmtTime(entry.time)}<br>` +
       `<span class="dim">최고 기록 ${r.best.score} · 총 ${r.plays}판 플레이</span><br>` +
-      `<span class="goldLine">🪙 +${earned} 골드 (보유 ${gold})</span>` +
+      (fresh.length ? `<span class="goldLine">🏅 새 캐릭터 해금: ${fresh.map(c => c.name).join(', ')}</span>` : '') +
       (entry.abil.length ? `<div class="abrow">${icons(entry.abil)}</div>` : '') +
       '<div class="rankLine" id="rankLine"></div>';
     const rankLine = $('rankLine');
