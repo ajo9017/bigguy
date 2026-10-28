@@ -1470,8 +1470,8 @@
       else power = Math.max(power, R * 2.2 * FRICTION);
     }
     e.vx += nx * power; e.vy += ny * power;
-    // 보스는 공격 동작(준비/공격/후딜) 중에 맞아도 경직되지 않아 공격이 끊기지 않는다(넉백과 피해는 그대로)
-    if (!(e.def.boss && ['windup', 'slamwind', 'attack', 'recover'].includes(e.state))) {
+    // 보스는 슈퍼아머: 언제 맞아도 경직되지 않는다(넉백과 피해는 그대로). 기절·빙결 같은 상태이상은 따로 적용된다
+    if (!e.def.boss) {
       e.state = 'stun'; e.st = 0;
       e.hitstun = Math.min(1.2, 0.15 + power / 1500) * ab('stun', 1);
     }
