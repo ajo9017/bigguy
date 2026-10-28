@@ -916,7 +916,8 @@
   }
 
   // ---------- 전투 ----------
-  const activeEnemy = e => !e.falling && e.state !== 'spawn';
+  // 점프 중인 적(jumper의 attack 상태)은 무적이라 공격·충격파·아이템에 맞지 않는다
+  const activeEnemy = e => !e.falling && e.state !== 'spawn' && !(e.jump && e.state === 'attack');
 
   function nearestEnemy(p, maxD) {
     let best = null, bd = maxD;
