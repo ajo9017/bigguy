@@ -11,6 +11,9 @@ window.GAME_DATA = {
   // 전체 랭킹 저장소(Supabase). publishable 키는 공개용이고, 표는 읽기/추가만 허용된다(RLS)
   ranking: { url: 'https://dpogvzcepzgjixfitcjm.supabase.co', key: 'sb_publishable_A83NtpfCdZGCbVG8Q5DOHQ_Et4zovtQ', top: 30 },
 
+  // 모든 적 공격(피해%와 넉백)에 곱해지는 배율
+  enemyAttackMul: 1.5,
+
   player: {
     radius: 34,
     mass: 1.6,

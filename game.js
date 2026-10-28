@@ -1532,9 +1532,9 @@
       Sfx.play('pick');
       return;
     }
-    const dmg = A.damage * ab('tough', 1) * (p.atk ? ab('x_weave', 1) : 1);
+    const dmg = A.damage * (D.enemyAttackMul || 1) * ab('tough', 1) * (p.atk ? ab('x_weave', 1) : 1);
     p.pct += dmg;
-    let power = A.force * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1);
+    let power = A.force * (D.enemyAttackMul || 1) * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1);
     p.counterT = lvl('x_counter') ? 4 : 0;
     if (lvl('grip') && Math.hypot(p.x, p.y) > R * 0.7) power *= ab('grip');
     // 체력 1% 이하(피해 198%+)면 아무리 작은 공격에도 기둥 밖으로 날아간다
