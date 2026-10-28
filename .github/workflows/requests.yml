@@ -24,6 +24,8 @@ on:
 
 jobs:
   enqueue:
+    outputs:
+      queued: ${{ steps.mark.outputs.queued }}
     # 이슈/댓글 이벤트: 그 이슈를 큐에 넣을지 정한다. 매시간 sweep/수동 실행: 임시 허용 기간에 사용량 때문에 대기한 플레이어 요청을 다시 확인한다
     if: >-
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
@@ -95,6 +97,7 @@ jobs:
           fi
 
       - name: 반영대기 표시
+        id: mark
         run: |
           LIST="${{ steps.pick.outputs.direct }}"
           [ "${{ steps.gate.outputs.ok }}" = "true" ] && LIST="$LIST ${{ steps.pick.outputs.gated }}"
@@ -105,6 +108,7 @@ jobs:
             gh issue edit "$n" --remove-label "일부 반영" || true
             gh issue edit "$n" --add-label 반영대기
           done
+          echo "queued=$LIST" >> "$GITHUB_OUTPUT"
 
   apply:
     needs: enqueue
@@ -125,7 +129,15 @@ jobs:
       - name: 처리할 요청 모으기
         id: q
         run: |
-          LIST=$(gh issue list --state open --label 반영대기 --limit 20 --json number --jq '.[].number' | sort -n | tr '\n' ' ' | xargs)
+          # 라벨 목록 검색은 라벨을 붙인 직후 몇 초간 비어 보일 수 있어서, 방금 enqueue가 넣은 이슈도 직접 합친다
+          FOUND=$(gh issue list --state open --label 반영대기 --limit 20 --json number --jq '.[].number')
+          LIST=""
+          for n in $(echo $FOUND ${{ needs.enqueue.outputs.queued }} | tr ' ' '\n' | sort -nu); do
+            # 이슈를 직접 읽어서 아직 열려 있고 다른 실행이 맡지 않은 것만 고른다
+            OK=$(gh issue view "$n" --json state,labels --jq '.state == "OPEN" and (any(.labels[]; .name == "작업중") | not)')
+            if [ "$OK" = "true" ]; then LIST="$LIST $n"; fi
+          done
+          LIST=$(echo $LIST)
           echo "처리할 이슈: ${LIST:-없음}"
           echo "list=$LIST" >> "$GITHUB_OUTPUT"
           [ -z "$LIST" ] && exit 0
