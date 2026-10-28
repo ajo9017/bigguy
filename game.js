@@ -240,8 +240,11 @@
     releaseInput();
     ui.chat.classList.remove('hidden');
     ui.btnChat.classList.add('hidden');
+    // 이름 입력칸 등에 남은 포커스를 먼저 빼고, 탭 직후(사용자 동작 안)에 바로 포커스를 줘야 모바일에서 키보드가 이 입력칸으로 뜬다
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    ui.chatText.focus({ preventScroll: true });
     renderChatHist();
-    setTimeout(() => ui.chatText.focus(), 50);
+    setTimeout(() => { if (chatOpen && document.activeElement !== ui.chatText) ui.chatText.focus(); }, 50);
   }
   function closeChat() {
     chatOpen = false;
