@@ -181,7 +181,7 @@ window.GAME_DATA = {
     // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
     { id: 'giant',       icon: '🗿', name: '거대화',      cap: 13, lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
     // 특별 능력: 효과는 game.js에서 id로 읽는다
-    { id: 'vampire',     icon: '🧛', name: '흡혈',        cap: 5, lv: [1, 2, 3],         desc: v => `공격이 적중할 때마다 내 피해% -${v}` },
+    { id: 'vampire',     icon: '🧛', name: '흡혈',        cap: 5, lv: [1, 2, 3],         desc: v => `공격이 적중할 때마다 체력 회복 +${v}%` },
     { id: 'execute',     icon: '🎯', name: '마무리 일격', lv: [1.3, 1.6, 2.0],   desc: v => `피해% 100 이상인 적에게 넉백 x${v}` },
     { id: 'lunge', melee: true,       icon: '🚀', name: '돌격 펀치',   cap: 6, lv: [1.8, 2.6, 3.4],   desc: v => `공격할 때 앞으로 나가는 거리 x${v}` },
     { id: 'berserk',     icon: '🩸', name: '광전사',      lv: [0.3, 0.5, 0.8],   desc: v => `내 피해%가 높을수록 넉백 증가 (100%당 +${Math.round(v * 100)}%)` },
