@@ -272,6 +272,18 @@ window.GAME_DATA = {
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
+  // 필드 아이템: 매 웨이브 chance 확률로 delay[0]~delay[1]초 사이에 하나가 떨어진다(weight 가중치). life초 뒤 사라진다.
+  // 주우면 효과가 바로 나거나(bomb, ice, gem) time초 동안 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
+  itemDrop: { chance: 0.75, delay: [4, 12], radius: 18 },
+  items: [
+    { id: 'bomb',    icon: '💣', name: '폭탄',         weight: 3, life: 15, range: 230, force: 950, desc: '주변 적을 모두 날려버림' },
+    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '6초 동안 무적' },
+    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '8초 동안 이동·공격 속도 x1.4' },
+    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '10초 동안 공격 넉백 x1.5' },
+    { id: 'ice',     icon: '🧊', name: '얼음 결정',     weight: 2, life: 15, time: 3, desc: '3초 동안 모든 적이 얼어붙음 (보스는 절반)' },
+    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 웨이브)' },
+  ],
+
   // 마지막 웨이브(30) 이후: 마릿수는 count로 고정하고 pool(가중치)에서 무작위로 섞는다.
   // 대신 웨이브마다 적이 단단해지고(몸무게 x(1 + tough * n), n = 30 이후 몇 번째 웨이브) 정예가 섞인다.
   // 정예: 확률 elite + eliteStep * n (최대 eliteMax), 몸무게 x eliteMass, 크기 x eliteScale, 금색 테두리

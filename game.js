@@ -7,6 +7,7 @@
   const FRICTION = 4;      // 넉백 속도 감쇠
   const GRAVITY = 1700;
   const ABIL = Object.fromEntries(D.abilities.map(a => [a.id, a]));
+  const ITEM = Object.fromEntries(D.items.map(it => [it.id, it]));
 
   const canvas = document.getElementById('game');
   let ctx = canvas.getContext('2d');
@@ -126,7 +127,7 @@
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0,
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
@@ -623,14 +624,14 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     const ch = charById(selChar);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, ch,
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
       attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
     if (ch.skill && ABIL[ch.skill]) {
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -709,6 +710,7 @@
     game.bossT = -1;
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
+    game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
     game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
     if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * endlessN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
@@ -746,6 +748,7 @@
     if (game.banner) { game.banner.t -= dt; if (game.banner.t <= 0) game.banner = null; }
     if (player.falling) return;
     if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
+    if (game.itemT > 0 && (game.itemT -= dt) <= 0) dropItem();
     const alive = enemies.filter(e => !e.falling).length;
     if (game.queue.length) {
       game.spawnT -= dt;
@@ -784,13 +787,60 @@
   // ---------- 회복 고기 ----------
   function dropMeat() {
     const a = rand(0, Math.PI * 2), d = rand(0.15, 0.6) * R;
-    items.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
+    items.push({ kind: 'meat', x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
     text(0, 0, 200, '고기 투하!', '#ffb36b', 24);
+  }
+
+  // 필드 아이템 (data.js의 items). id를 주면 그 아이템, 없으면 가중치대로 무작위
+  function dropItem(id) {
+    const list = D.items, total = list.reduce((t, it) => t + it.weight, 0);
+    let def = list.find(it => it.id === id);
+    if (!def) {
+      let r = Math.random() * total;
+      def = list.find(it => (r -= it.weight) <= 0) || list[0];
+    }
+    const a = rand(0, Math.PI * 2), d = rand(0.15, 0.65) * R;
+    items.push({ kind: def.id, def, x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.itemDrop.radius, t: 0, life: def.life });
+    text(Math.cos(a) * d, Math.sin(a) * d, 200, `${def.icon} ${def.name}!`, '#ffffff', 20);
+  }
+
+  function useItem(it) {
+    const p = player, def = it.def;
+    text(p.x, p.y, p.r * 3.4, `${def.icon} ${def.name}`, '#ffffff', 22);
+    switch (def.id) {
+      case 'bomb':
+        pushAround(p, def.range, 10, def.force, true);
+        ring(p.x, p.y, 4, '#ffb347', def.range / 3);
+        burst(p.x, p.y, p.r, '#ffb347', 24, 520);
+        fx.shake = Math.max(fx.shake, 24); fx.zoom = 0.06;
+        Sfx.play('bighit'); Sfx.play('fall');
+        break;
+      case 'star': p.starT = def.time; p.inv = Math.max(p.inv, def.time); break;
+      case 'drink': p.hasteT = def.time; break;
+      case 'protein': p.powerT = def.time; break;
+      case 'ice':
+        for (const e of enemies) {
+          if (!activeEnemy(e)) continue;
+          e.frozen = e.def.boss ? def.time / 2 : def.time;
+          e.state = 'stun'; e.st = 0; e.hitstun = e.frozen; e.vx = e.vy = 0;
+          burst(e.x, e.y, e.r, '#bfe8ff', 8, 220);
+        }
+        fx.shake = Math.max(fx.shake, 8);
+        break;
+      case 'gem': {
+        const pts = def.score * (game.wave + 1);
+        game.score += pts;
+        text(p.x, p.y, p.r * 2.2, `+${pts}`, '#ffd84a', 24);
+        break;
+      }
+    }
+    Sfx.play('pick');
   }
 
   function updateItems(dt) {
     for (const it of items) {
       it.t += dt;
+      if (it.life != null && (it.life -= dt) <= 0) { it.taken = true; burst(it.x, it.y, 6, '#ffffff', 6, 150); continue; }
       if (it.z > 0) {
         it.vz -= GRAVITY * dt; it.z += it.vz * dt;
         if (it.z <= 0) { it.z = 0; it.vz = 0; burst(it.x, it.y, 2, '#d8d2c0', 8, 200); }
@@ -799,6 +849,7 @@
       const p = player;
       if (p.falling || Math.hypot(p.x - it.x, p.y - it.y) > p.r + it.r) continue;
       it.taken = true;
+      if (it.kind !== 'meat') { useItem(it); continue; }
       const mh = Math.round(D.meat.heal * ab('meat_lover', 1));
       const heal = Math.min(mh, Math.round(p.pct));
       p.pct = Math.max(0, p.pct - mh);
@@ -890,7 +941,7 @@
     const n = (fin && fin.count) || 1, spread = (fin && fin.spread) || 0;
     const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
     let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul : 1) / (n > 1 ? 1.4 : 1);
-    kb *= 1 + p.pct / 100 * ab('berserk', 0);
+    kb *= (1 + p.pct / 100 * ab('berserk', 0)) * (p.powerT > 0 ? ITEM.protein.mul : 1);
     if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
     const sp = (fin && fin.speed) || R0.speed;
     for (let i = 0; i < n; i++) {
@@ -977,6 +1028,9 @@
     }
 
     if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
+    // 아이템 지속 효과
+    for (const k of ['starT', 'hasteT', 'powerT']) if (p[k] > 0) p[k] -= dt;
+    const haste = p.hasteT > 0 ? ITEM.drink.mul : 1, power = p.powerT > 0 ? ITEM.protein.mul : 1;
 
     // 재생: 5초마다 한 번, 1초당 회복량의 5배를 회복하고 초록 십자가가 뜬다
     const rg = ab('regen', 0);
@@ -1014,7 +1068,7 @@
     } else {
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
-      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * (p.atk ? 0.35 : 1);
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? 0.35 : 1);
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
@@ -1024,7 +1078,7 @@
 
     const a = p.atk;
     if (!a) return;
-    a.t += dt * ab('rapid', 1);
+    a.t += dt * ab('rapid', 1) * haste;
     const def = a.def;
     if (a.ranged) {
       if (!a.fired && a.t >= def.active[0]) { a.fired = true; fireShots(p, a); }
@@ -1043,7 +1097,7 @@
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
         const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
+        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow * power;
         kb *= 1 + p.pct / 100 * ab('berserk', 0);
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
@@ -1087,7 +1141,7 @@
 
   function hitPlayer(e, nx, ny, A = e.def.attack) {
     const p = player;
-    if (p.inv > 0 || p.falling) return;
+    if (p.inv > 0 || p.starT > 0 || p.falling) return;
     if (lvl('shield') && p.shieldT >= ab('shield')) {
       p.shieldT = 0; p.inv = 0.5;
       burst(p.x, p.y, p.r, '#b8a0ff', 14, 320); ring(p.x, p.y, p.r, '#b8a0ff', p.r * 2.2);
@@ -1129,6 +1183,10 @@
 
   function updateEnemy(e, dt) {
     if (e.falling) return;
+    if (e.frozen > 0) {
+      e.frozen -= dt;
+      if (e.state !== 'spawn') { e.state = 'stun'; e.hitstun = Math.max(e.hitstun, e.frozen); }
+    }
     e.st += dt;
     if (e.state === 'spawn') {
       const u = clamp(e.st / 0.7, 0, 1);
@@ -1554,6 +1612,10 @@
       ctx.stroke();
       ctx.restore();
     }
+    if (player.starT > 0 && !player.falling) {
+      ctx.strokeStyle = `hsl(${(time * 360) % 360},100%,65%)`; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(sx(player.x), sy(player.y, 0), player.r * S * 1.3, player.r * S * 1.3 * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+    }
     const a = player.atk;
     if (a && !a.ranged) {
       const u = a.t / a.def.duration;
@@ -1613,6 +1675,19 @@
       ctx.fillStyle = `rgba(0,0,0,${0.3 * s})`;
       ctx.beginPath(); ctx.ellipse(px, gy, r * 1.2 * s, r * 1.2 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
       const py = sy(it.y, it.z) - r * (1 + (it.z > 0 ? 0 : 0.15 * Math.sin(it.t * 5)));
+      if (it.kind !== 'meat') {
+        // 곧 사라질 아이템은 깜빡인다
+        if (it.life < 3 && Math.floor(it.life * 6) % 2 === 0) continue;
+        ctx.save();
+        const g = ctx.createRadialGradient(px, py, r * 0.2, px, py, r * 1.3);
+        g.addColorStop(0, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 1.3, 0, Math.PI * 2); ctx.fill();
+        ctx.font = `${Math.round(r * 1.7)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.def.icon, px, py);
+        ctx.restore();
+        continue;
+      }
       ctx.save();
       ctx.translate(px, py);
       ctx.rotate(-0.5);
@@ -1921,7 +1996,7 @@
     const lw = Math.max(1.5, r * 0.09);
     if (e.state === 'windup') ctx.translate(rand(-1, 1) * r * 0.1, 0);
     const blink = e.state === 'windup' && Math.floor(e.st * 12) % 2 === 0;
-    const base = blink ? '#ff6b6b' : d.color;
+    const base = e.frozen > 0 ? '#a8dcff' : blink ? '#ff6b6b' : d.color;
 
     if (d.horn) {
       ctx.fillStyle = tint(e, '#f5efe0'); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = lw;
@@ -2174,6 +2249,16 @@
       ix += 34;
       if (ix > maxX) { ix = 16; iy += 28; }
     }
+    // 아이템 지속 효과 (남은 초)
+    if (ix > 16) { ix = 16; iy += 32; }
+    for (const [k, id] of [['starT', 'star'], ['hasteT', 'drink'], ['powerT', 'protein']]) {
+      if (!(player[k] > 0)) continue;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = '20px system-ui, sans-serif'; ctx.fillStyle = '#ffffff';
+      ctx.fillText(ITEM[id].icon, ix, iy);
+      drawCooldown({ frac: 1, left: player[k], active: true }, ix + 11, iy + 11);
+      ix += 34;
+    }
 
     if (game.banner) {
       const b = game.banner, age = b.max - b.t;
@@ -2267,5 +2352,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, get shots() { return shots; }, startGame, startWave, spawnEnemy, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, dropItem, get shots() { return shots; }, startGame, startWave, spawnEnemy, openPick, choose };
 })();
