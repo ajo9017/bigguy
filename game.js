@@ -78,8 +78,8 @@
       }
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     },
-    tone(f0, f1, dur, type, vol) {
-      const c = this.ctx, t = c.currentTime;
+    tone(f0, f1, dur, type, vol, delay = 0) {
+      const c = this.ctx, t = c.currentTime + delay;
       const o = c.createOscillator(), g = c.createGain();
       o.type = type;
       o.frequency.setValueAtTime(f0, t);
@@ -112,6 +112,14 @@
         case 'wave': this.tone(440, 880, 0.25, 'square', 0.07); break;
         case 'pick': this.tone(600, 1200, 0.18, 'triangle', 0.12); break;
         case 'roar': this.tone(120, 60, 0.4, 'sawtooth', 0.15); this.noise(0.3, 0.2, 600); break;
+        case 'fanfare':
+          // 빰빠밤 빠~밤!
+          [[523, 0, 0.14], [523, 0.15, 0.1], [523, 0.27, 0.1], [659, 0.39, 0.32], [523, 0.75, 0.14], [784, 0.92, 0.7]].forEach(([f, d, l]) => {
+            this.tone(f, f * 1.003, l, 'square', 0.07, d);
+            this.tone(f / 2, f / 2, l, 'triangle', 0.08, d);
+          });
+          break;
+        case 'pop': this.noise(0.35, 0.35, 2400); this.tone(900, 300, 0.25, 'sine', 0.05); break;
       }
     },
   };
@@ -119,7 +127,7 @@
   // ---------- 상태 ----------
   const game = {
     state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
-    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [],
+    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [];
@@ -612,7 +620,7 @@
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -735,8 +743,9 @@
       }
     } else if (alive === 0) {
       if (game.clearT < 0) {
-        game.clearT = 1.3;
-        game.banner = { text: 'CLEAR!', t: 1.3, max: 1.3 };
+        // 보스 폭죽이 남아 있으면 다 터질 때까지 기다리고, 격파 배너는 덮어쓰지 않는다
+        game.clearT = Math.max(1.3, ...game.fireworks.map(f => f.t + 1));
+        if (!(game.banner && game.banner.boss)) game.banner = { text: 'CLEAR!', t: 1.3, max: 1.3 };
         const heal = ab('recovery', 0);
         if (heal && player.pct > 0) {
           player.pct = Math.max(0, player.pct - heal);
@@ -800,7 +809,8 @@
       p.life -= dt;
       if (p.type === 'spark') {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-        const f = Math.exp(-5 * dt); p.vx *= f; p.vy *= f; p.vz *= f;
+        const f = Math.exp((p.fw ? -1.8 : -5) * dt); p.vx *= f; p.vy *= f; p.vz *= f;
+        if (p.fw) p.vz -= 220 * dt;
       } else if (p.type === 'text' || p.type === 'cross') {
         p.z += p.vz * dt; p.vz *= Math.exp(-2 * dt);
       }
@@ -1225,12 +1235,36 @@
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
+    if (e.def.boss) bossDefeated(e);
     const adr = ab('adrenaline', 0);
     if (adr && !player.falling && player.pct > 0) {
       player.pct = Math.max(0, player.pct - adr);
       text(player.x, player.y, player.r * 3, `-${adr}%`, '#7dff9a', 18);
     }
     Sfx.play('fall');
+  }
+
+  // 보스 처치: 팡파레와 함께 기둥 위 하늘에 폭죽이 연달아 터진다
+  function bossDefeated(e) {
+    game.banner = { text: '🎉 BOSS 격파! 🎉', sub: e.def.name, color: '#ffd84a', t: 2.6, max: 2.6, boss: true };
+    for (let i = 0; i < 9; i++) game.fireworks.push({ t: 0.25 + i * 0.22 + rand(0, 0.1), x: rand(-0.8, 0.8) * R, y: rand(-0.7, 0.3) * R });
+    fx.shake = Math.max(fx.shake, 16);
+    Sfx.play('fanfare');
+  }
+  const FW_COLORS = ['#ff5a5a', '#ffd84a', '#5affa0', '#5ac8ff', '#c77dff', '#ff9bea', '#ffffff'];
+  function firework(x, y) {
+    const z = rand(140, 260), color = FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)];
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, Math.PI * 2), up = rand(-1, 1), s = rand(260, 380), life = rand(0.9, 1.3);
+      const h = Math.sqrt(1 - up * up);
+      particles.push({ type: 'spark', x, y, z, vx: Math.cos(a) * h * s, vy: Math.sin(a) * h * s, vz: up * s, life, max: life, color, size: rand(2.5, 4), fw: true });
+    }
+    ring(x, y, z, color, 30);
+    Sfx.play('pop');
+  }
+  function updateFireworks(dt) {
+    for (const f of game.fireworks) if ((f.t -= dt) <= 0) firework(f.x, f.y);
+    game.fireworks = game.fireworks.filter(f => f.t > 0);
   }
 
   // 낙법: 떨어지던 플레이어를 기둥 위 공중으로 되돌린다
@@ -1330,6 +1364,7 @@
     updateItems(dt);
     updateShots(dt);
     updateEnemyShots(dt);
+    updateFireworks(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -2000,8 +2035,11 @@
       const a = clamp(Math.min(age * 4, b.t * 2), 0, 1);
       const pop = age < 0.15 ? 1 + (0.15 - age) * 4 : 1;
       ctx.globalAlpha = a;
-      ctx.font = `900 ${Math.min(64, W * 0.12) * pop}px system-ui, sans-serif`;
-      ctx.textBaseline = 'middle';
+      const bs = Math.min(64, W * 0.12);
+      ctx.font = `900 ${bs}px system-ui, sans-serif`;
+      const fit = Math.min(1, W * 0.92 / ctx.measureText(b.text).width);
+      ctx.font = `900 ${bs * fit * pop}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 8; ctx.strokeStyle = '#000'; ctx.strokeText(b.text, W / 2, H * 0.24);
       ctx.fillStyle = b.color || '#ffd84a'; ctx.fillText(b.text, W / 2, H * 0.24);
       if (b.sub) {
@@ -2084,5 +2122,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, get shots() { return shots; }, startGame, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, get shots() { return shots; }, startGame, startWave, spawnEnemy, openPick, choose };
 })();
