@@ -969,6 +969,7 @@
     ring(p.x, p.y, 4, heavy ? '#8fd3ff' : '#ffffff', radius / 3.2);
   }
 
+  const CLONE_DELAY = 1;
   function startAttack(p) {
     const a = p.attackDef;
     p.combo = (p.comboT > 0 ? p.combo : 0) + 1;
@@ -984,6 +985,7 @@
     p.idleT = 0;
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    if (p.clone) p.clone.q.push({ at: p.clone.clk + CLONE_DELAY, def: a, finisher, spin: spin && !ranged, ranged, range, arc: p.atk.arc, face: p.face });
     // 캐릭터 전용: 3타째를 시작할 때 나가는 효과 (스모 기합, 요리사 플랑베, 닌자 수리검, 장군 투창)
     if (finisher && !ranged) {
       if (lvl('s_shout')) { pushAround(p, ab('s_shout'), 3, 520, true); fx.shake = Math.max(fx.shake, 8); }
@@ -1154,20 +1156,45 @@
     }
     // 분신술: 잠시 분신이 곁을 돌며 주변 적을 밀친다
     if (!p.clone && specialReady(p, 'clone', dt)) {
-      p.clone = { x: p.x, y: p.y, t: ab('clone'), hitT: 0, a: p.face + Math.PI / 2 };
+      p.clone = { x: p.x, y: p.y, t: ab('clone'), clk: 0, trail: [{ t: 0, x: p.x, y: p.y, face: p.face }], q: [], atk: null, face: p.face };
       ring(p.x, p.y, p.r, '#9fe6ff', p.r * 2);
       text(p.x, p.y, p.r * 3, '분신술!', '#9fe6ff', 24);
       Sfx.play('roar');
     } else if (p.clone) {
       const c = p.clone;
-      c.t -= dt; c.a += dt * 2.2;
-      c.x = p.x + Math.cos(c.a) * 95; c.y = p.y + Math.sin(c.a) * 95;
+      c.t -= dt; c.clk += dt;
+      // 분신은 내가 1초 전에 한 움직임과 공격을 그대로 따라 한다
+      c.trail.push({ t: c.clk, x: p.x, y: p.y, face: p.face });
+      while (c.trail.length > 2 && c.trail[1].t <= c.clk - CLONE_DELAY) c.trail.shift();
+      const past = c.trail[0];
+      c.x = past.x; c.y = past.y; c.face = past.face;
       if (Math.hypot(c.x, c.y) > R * 0.95) { const k = R * 0.95 / Math.hypot(c.x, c.y); c.x *= k; c.y *= k; }
-      c.hitT -= dt;
-      if (c.hitT <= 0) {
-        c.hitT = 0.55;
-        pushAround(c, 85, 3, 228, false);
-        burst(c.x, c.y, 20, '#9fe6ff', 5, 200);
+      while (c.q.length && c.q[0].at <= c.clk) {
+        const ev = c.q.shift();
+        c.face = ev.face;
+        c.atk = { def: ev.def, t: 0, finisher: ev.finisher, spin: ev.spin, ranged: ev.ranged, range: ev.range, arc: ev.arc, face: ev.face, hit: new Set(), done: false };
+      }
+      if (c.atk) {
+        const a = c.atk, def = a.def;
+        a.t += dt;
+        c.face = a.face ?? c.face;
+        if (!a.done && a.t >= def.active[0]) {
+          a.done = true;
+          const fxv = Math.cos(c.face), fyv = Math.sin(c.face);
+          for (const e of enemies) {
+            if (!activeEnemy(e)) continue;
+            const dx = e.x - c.x, dy = e.y - c.y, d = Math.hypot(dx, dy);
+            const rng = a.ranged ? 260 : a.range;
+            if (d > rng + e.r) continue;
+            if (Math.abs(angDiff(Math.atan2(dy, dx), c.face)) > a.arc * Math.PI / 360 && d > p.r + e.r) continue;
+            const mix = a.spin ? 0 : 0.6;
+            let nx = dx / (d || 1) + fxv * mix, ny = dy / (d || 1) + fyv * mix;
+            const nl = Math.hypot(nx, ny) || 1;
+            hitEnemy(e, nx / nl, ny / nl, def.damage * (a.finisher ? 1.5 : 1), def.knockback * (a.finisher ? def.finisherMul : 1) * 0.8, a.finisher);
+          }
+          ring(c.x, c.y, 4, '#9fe6ff', a.finisher ? 30 : 20);
+        }
+        if (a.t >= def.duration) c.atk = null;
       }
       if (c.t <= 0) { ring(c.x, c.y, 20, '#9fe6ff', 50); p.clone = null; }
     }
@@ -2597,7 +2624,7 @@
     ctx.save();
     ctx.translate(sx(c.x), sy(c.y, 0) - r);
     ctx.globalAlpha = c.t < 1 ? 0.25 + 0.25 * Math.sin(time * 30) : 0.5;
-    drawPlayer({ ...player, atk: null, flash: 0, hurt: 0, inv: 0, face: Math.atan2(c.y - player.y, c.x - player.x) + Math.PI / 2, walk: time * 8 }, r);
+    drawPlayer({ ...player, flash: 0, hurt: 0, inv: 0, atk: c.atk ? { ...c.atk, pose: false } : null, face: c.face, walk: time * 8 }, r);
     ctx.restore();
   }
 
