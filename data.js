@@ -20,10 +20,10 @@ window.GAME_DATA = {
   },
 
   // behavior: 'walker' = 다가와서 휘두르기, 'charger' = 멀리서 조준 후 돌진
-  // 그리기 옵션: horn(뿔), teeth(송곳니), spikes(가시), crown(왕관)
+  // 그리기 옵션: horn(뿔), teeth(송곳니), spikes(가시), crown(왕관), square(네모 몸통)
   enemies: {
     grunt: {
-      name: '졸개', color: '#7bc96f', radius: 20, mass: 1, speed: 110, behavior: 'walker', score: 100,
+      name: '졸개', color: '#e0453a', square: true, radius: 20, mass: 1, speed: 110, behavior: 'walker', score: 100,
       attack: { range: 44, windup: 0.45, recover: 0.6, damage: 8, force: 520 },
     },
     charger: {

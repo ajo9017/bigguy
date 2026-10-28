@@ -2016,7 +2016,11 @@
       }
     }
     if (d.ghost) ctx.globalAlpha = 0.72 + 0.15 * Math.sin(time * 4 + e.x);
-    circle(0, 0, r, tint(e, base), shade(d.color, -0.5), lw);
+    if (d.square) {
+      const q = r * 0.9;
+      ctx.fillStyle = tint(e, base); ctx.strokeStyle = shade(d.color, -0.5); ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.rect(-q, -q, q * 2, q * 2); ctx.fill(); ctx.stroke();
+    } else circle(0, 0, r, tint(e, base), shade(d.color, -0.5), lw);
     if (d.ghost) {
       // 아래쪽 물결 자락
       ctx.fillStyle = tint(e, base);
