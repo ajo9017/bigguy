@@ -151,7 +151,9 @@
     if (performance.now() - dashBuf < 180) { dashBuf = -1; return true; }
     return false;
   }
-  function releaseInput() { keys.clear(); stick.id = null; stick.x = stick.y = 0; }
+  let btnAtkHeld = false;
+  function attackHeld() { return btnAtkHeld || keys.has('KeyJ') || keys.has('KeyK') || keys.has('Space'); }
+  function releaseInput() { btnAtkHeld = false; keys.clear(); stick.id = null; stick.x = stick.y = 0; }
 
   // e.code를 써야 한글 입력 상태에서도 WASD가 동작한다
   addEventListener('keydown', e => {
@@ -183,8 +185,8 @@
   canvas.addEventListener('pointerup', endStick);
   canvas.addEventListener('pointercancel', endStick);
 
-  ui.btnAtk.addEventListener('pointerdown', e => { e.preventDefault(); pressAttack(); ui.btnAtk.classList.add('on'); });
-  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) ui.btnAtk.addEventListener(t, () => ui.btnAtk.classList.remove('on'));
+  ui.btnAtk.addEventListener('pointerdown', e => { e.preventDefault(); pressAttack(); btnAtkHeld = true; ui.btnAtk.classList.add('on'); });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) ui.btnAtk.addEventListener(t, () => { btnAtkHeld = false; ui.btnAtk.classList.remove('on'); });
 
   const btnDash = $('btnDash');
   btnDash.addEventListener('pointerdown', e => { e.preventDefault(); pressDash(); btnDash.classList.add('on'); });
@@ -1121,7 +1123,7 @@
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
       p.walk += m * dt * 12;
-      if (!p.atk && consumeAttack()) startAttack(p);
+      if (!p.atk && (consumeAttack() || attackHeld())) startAttack(p);
     }
 
     const a = p.atk;
