@@ -2209,6 +2209,23 @@
     ctx.rotate(e.tilt + e.spin);
     ctx.scale(e.sqx, e.sqy);
     if (e.kind === 'player') drawPlayer(e, r); else drawEnemy(e, r);
+    if (e.kind === 'player' && (e.inv > 0 || e.starT > 0) && !e.falling) {
+      // 무적: 캐릭터 전체가 빠르게 반짝이고 별빛이 튄다
+      const pulse = 0.5 + 0.5 * Math.sin(time * 28);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.25 + 0.4 * pulse;
+      drawPlayer(e, r);
+      ctx.restore();
+      ctx.fillStyle = '#fff6b0';
+      for (let i = 0; i < 5; i++) {
+        const a = time * 5 + i * 1.7, s = Math.max(1.5, r * 0.1) * (0.6 + 0.8 * Math.abs(Math.sin(time * 14 + i * 2.3)));
+        const x = Math.cos(a * 1.3 + i) * r * 0.95, y = Math.sin(a * 0.9 + i * 2) * r * 1.1;
+        ctx.beginPath(); ctx.moveTo(x, y - s * 2); ctx.lineTo(x + s * 0.6, y - s * 0.6); ctx.lineTo(x + s * 2, y);
+        ctx.lineTo(x + s * 0.6, y + s * 0.6); ctx.lineTo(x, y + s * 2); ctx.lineTo(x - s * 0.6, y + s * 0.6);
+        ctx.lineTo(x - s * 2, y); ctx.lineTo(x - s * 0.6, y - s * 0.6); ctx.closePath(); ctx.fill();
+      }
+    }
     ctx.restore();
 
     if (e.kind === 'enemy' && e.state === 'slamwind' && !e.falling) {
