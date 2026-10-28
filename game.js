@@ -34,7 +34,8 @@
     S = Math.min(W / (2 * R + 70), H * 0.78 / (2 * R * SQ + 120));
     CX = W / 2; CY = H * 0.48;
   }
-  window.addEventListener('resize', resize);
+  // 개선 요청 창에서 모바일 키보드가 뜨면 창 높이가 바뀌는데, 이때 캔버스를 다시 만들면 한글 입력(IME) 조합이 끊긴다. 채팅 중엔 건너뛰고 닫을 때 한 번 맞춘다
+  window.addEventListener('resize', () => { if (!chatOpen) resize(); });
   resize();
 
   const sx = x => CX + x * S;
@@ -276,13 +277,13 @@
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     ui.chatText.focus({ preventScroll: true });
     renderChatHist();
-    setTimeout(() => { if (chatOpen && document.activeElement !== ui.chatText) ui.chatText.focus(); }, 50);
   }
   function closeChat() {
     chatOpen = false;
     ui.chat.classList.add('hidden');
     ui.btnChat.classList.remove('hidden');
     ui.chatText.blur();
+    resize();
   }
   // 요청 현황: 공개 GitHub API로 [요청] 이슈 상태를 읽는다 (로그인 불필요). 실패하면 이 기기에서 보낸 목록만 보여준다
   function reqStatus(i) {
