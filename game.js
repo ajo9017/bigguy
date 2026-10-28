@@ -1222,10 +1222,15 @@
     e.state = 'stun'; e.st = 0;
     e.hitstun = Math.min(1.2, 0.15 + power / 1500) * ab('stun', 1);
     e.flash = 0.12; e.sqx = 1.35; e.sqy = 0.7; e.tilt = (nx >= 0 ? 1 : -1) * 0.45;
-    fx.hitstop = Math.max(fx.hitstop, heavy ? 0.09 : 0.045);
-    fx.shake = Math.max(fx.shake, heavy ? 10 : 5);
-    burst(e.x, e.y, e.r, heavy ? '#ffb347' : '#ffffff', heavy ? 12 : 7, heavy ? 380 : 260);
-    if (heavy) ring(e.x, e.y, e.r, '#ffd84a', e.r);
+    // 타격감: 퍼센트가 높을수록 멈춤과 흔들림이 커지고, 모든 타격에 충격 링과 불꽃이 번진다
+    const big = Math.min(1, power / 900);
+    fx.hitstop = Math.max(fx.hitstop, (heavy ? 0.09 : 0.055) + big * 0.04);
+    fx.shake = Math.max(fx.shake, (heavy ? 10 : 6) + big * 6);
+    if (heavy) fx.zoom = Math.max(fx.zoom, 0.03 + big * 0.03);
+    e.sqx = 1.5; e.sqy = 0.62;
+    burst(e.x, e.y, e.r, heavy ? '#ffb347' : '#ffffff', heavy ? 16 : 10, heavy ? 420 : 300);
+    burst(e.x, e.y, e.r, '#ffe066', heavy ? 8 : 4, 520);
+    ring(e.x, e.y, e.r, heavy ? '#ffd84a' : '#ffffff', e.r * (heavy ? 1.3 : 0.9));
     text(e.x, e.y, e.r * 2.2, `${Math.round(e.pct)}%`, heavy ? '#ffb347' : '#ffffff', heavy ? 22 : 16);
     Sfx.play(heavy ? 'bighit' : 'hit');
   }
