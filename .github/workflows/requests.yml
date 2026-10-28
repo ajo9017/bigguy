@@ -4,7 +4,7 @@
 #   게임 안 요청은 Supabase Edge Function이 주인 토큰으로 이슈를 만들므로, 주인 코드 없이 보낸 요청에는
 #   본문에 'bigguy:player' 표시가 붙고 바로 작업하지 않는다
 # - 임시 허용: PLAYER_AUTO_UNTIL 시각까지는 주인 코드 없이 보낸 요청(bigguy:player)도 바로 작업한다.
-#   단, 그 순간 Claude 주간 사용량(seven_day)이 PLAYER_AUTO_MAX_USAGE% 미만일 때만. 사용량을 못 읽으면 바로 하지 않고 기다린다
+#   단, 그 순간 Claude 주간 사용량이 PLAYER_AUTO_MAX_USAGE% 미만일 때만(.github/scripts/weekly-usage.sh). 못 읽거나 넘으면 기다렸다가 매시간 다시 확인한다
 # 필요한 Secret: CLAUDE_CODE_OAUTH_TOKEN(`claude setup-token`) 또는 ANTHROPIC_API_KEY 중 하나
 #
 # 동작 방식: 요청이 들어오면 이슈에 '반영대기' 라벨만 붙이고(enqueue), apply가 그 라벨이 붙은 이슈를 전부 한 번에 처리한다.
@@ -24,56 +24,91 @@ on:
 
 jobs:
   enqueue:
+    # 이슈/댓글 이벤트: 그 이슈를 큐에 넣을지 정한다. 매시간 sweep/수동 실행: 임시 허용 기간에 사용량 때문에 대기한 플레이어 요청을 다시 확인한다
     if: >-
-      (github.event_name == 'issues' || github.event_name == 'issue_comment') &&
-      startsWith(github.event.issue.title, '[요청]') &&
-      github.event.issue.state == 'open' &&
-      !github.event.issue.pull_request &&
-      ((github.event_name == 'issues' && github.event.issue.user.login == github.repository_owner) ||
-       (github.event_name == 'issue_comment' && github.event.comment.user.login == github.repository_owner &&
-        contains(github.event.comment.body, '반영')))
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.issue.title, '[요청]') &&
+       github.event.issue.state == 'open' &&
+       !github.event.issue.pull_request &&
+       ((github.event_name == 'issues' && github.event.issue.user.login == github.repository_owner) ||
+        (github.event_name == 'issue_comment' && github.event.comment.user.login == github.repository_owner &&
+         contains(github.event.comment.body, '반영'))))
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       ISSUE: ${{ github.event.issue.number }}
       PLAYER: ${{ github.event_name == 'issues' && contains(github.event.issue.body, 'bigguy:player') }}
+      PLAYER_AUTO_FROM: '2026-10-28T03:59:00Z'
       PLAYER_AUTO_UNTIL: '2026-10-29T04:00:00Z'
       PLAYER_AUTO_MAX_USAGE: '70'
     steps:
-      # 플레이어 요청은 임시 허용 기간이고 주간 사용량이 기준 미만일 때만 큐에 넣는다
-      - name: 플레이어 요청 확인
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: .github/scripts
+
+      # 바로 넣을 이슈(direct)와 사용량을 확인해야 하는 플레이어 이슈(gated)를 고른다
+      - name: 대상 고르기
+        id: pick
+        run: |
+          DIRECT=""; GATED=""
+          IN_WINDOW=$( [ "$(date -u +%s)" -lt "$(date -u -d "$PLAYER_AUTO_UNTIL" +%s)" ] && echo 1 || echo 0 )
+          if [ -n "$ISSUE" ]; then
+            if [ "$PLAYER" != "true" ]; then DIRECT="$ISSUE"
+            elif [ "$IN_WINDOW" = 1 ]; then GATED="$ISSUE"
+            else echo "임시 허용 기간이 끝나 주인 승인을 기다림"; fi
+          elif [ "$IN_WINDOW" = 1 ]; then
+            GATED=$(gh issue list --state open --limit 50 --json number,title,body,labels,createdAt | python3 -c "
+          import json, os, sys
+          for i in json.load(sys.stdin):
+              names = {l['name'] for l in i['labels']}
+              if i['title'].startswith('[요청]') and 'bigguy:player' in i['body'] and i['createdAt'] >= os.environ['PLAYER_AUTO_FROM'] \
+                 and not names & {'반영대기', '작업중', '일부 반영'}:
+                  print(i['number'])
+          " | xargs)
+          fi
+          echo "바로: ${DIRECT:-없음} / 사용량 확인: ${GATED:-없음}"
+          echo "direct=$DIRECT" >> "$GITHUB_OUTPUT"
+          echo "gated=$GATED" >> "$GITHUB_OUTPUT"
+
+      # 플레이어 요청은 주간 사용량이 기준 미만일 때만 큐에 넣는다. 못 읽으면 넣지 않는다
+      - name: 주간 사용량 확인
         id: gate
+        if: steps.pick.outputs.gated != ''
         env:
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          if [ "$PLAYER" != "true" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if [ "$(date -u +%s)" -ge "$(date -u -d "$PLAYER_AUTO_UNTIL" +%s)" ]; then
-            echo "임시 허용 기간이 끝나 주인 승인을 기다림"; echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          USAGE=$(curl -s --max-time 15 https://api.anthropic.com/api/oauth/usage \
-            -H "Authorization: Bearer $OAUTH" -H "anthropic-beta: oauth-2025-04-20" \
-            | python3 -c "import sys, json; print(json.load(sys.stdin)['seven_day']['utilization'])" 2>/dev/null || true)
+          USAGE=$(bash .github/scripts/weekly-usage.sh)
           echo "주간 사용량: ${USAGE:-읽기 실패}%"
           if [ -n "$USAGE" ] && python3 -c "import sys; sys.exit(0 if float('$USAGE') < float('$PLAYER_AUTO_MAX_USAGE') else 1)"; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            gh issue comment "$ISSUE" --body "지금은 Claude 주간 사용량(${USAGE:-확인 실패}%)이 ${PLAYER_AUTO_MAX_USAGE}% 미만이 아니라서 바로 반영하지 않았어요. 주인이 '반영' 댓글을 달면 작업합니다."
+            # 이슈 이벤트일 때만 이유를 남긴다 (매시간 재확인 때마다 댓글이 쌓이지 않게)
+            if [ -n "$ISSUE" ]; then
+              gh issue comment "$ISSUE" --body "지금은 Claude 주간 사용량(${USAGE:-확인 실패}%)이 ${PLAYER_AUTO_MAX_USAGE}% 미만이 아니라서 바로 반영하지 않았어요. 매시간 다시 확인하고, 주인이 '반영' 댓글을 달면 바로 작업합니다."
+            fi
           fi
 
       - name: 반영대기 표시
-        if: steps.gate.outputs.ok == 'true'
         run: |
+          LIST="${{ steps.pick.outputs.direct }}"
+          [ "${{ steps.gate.outputs.ok }}" = "true" ] && LIST="$LIST ${{ steps.pick.outputs.gated }}"
+          LIST=$(echo $LIST)
+          [ -z "$LIST" ] && { echo "큐에 넣을 이슈 없음"; exit 0; }
           gh label create 반영대기 --color D4C5F9 --force
-          gh issue edit "$ISSUE" --remove-label "일부 반영" || true
-          gh issue edit "$ISSUE" --add-label 반영대기
+          for n in $LIST; do
+            gh issue edit "$n" --remove-label "일부 반영" || true
+            gh issue edit "$n" --add-label 반영대기
+          done
 
   apply:
     needs: enqueue
-    if: always() && (needs.enqueue.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.enqueue.result == 'success'
     concurrency:
       group: requests
       cancel-in-progress: false
