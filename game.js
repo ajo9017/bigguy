@@ -1034,7 +1034,7 @@
       const ang = p.face + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
       shots.push({
         x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
-        r: (fin && fin.radius) || R0.radius, color: (fin && fin.color) || R0.color, shape: R0.shape, left: a.range,
+        r: (fin && fin.radius) || R0.radius, hitScale: R0.hitScale || 1, color: (fin && fin.color) || R0.color, shape: R0.shape, left: a.range,
         dmg, kb, heavy: a.finisher, pierce: pierce && !boom, boom, bounce: boom && a.finisher ? Math.round(ab('m_bounce', 0)) : 0, hit: new Set(), fin: a.finisher,
       });
     }
@@ -1078,7 +1078,7 @@
         if (s.dead || !activeEnemy(e) || e.z < -1) continue;
         if (s.rehit ? s.hitT.has(e) : s.hit.has(e)) continue;
         const dx = e.x - s.x, dy = e.y - s.y;
-        if (Math.hypot(dx, dy) > e.r + s.r) continue;
+        if (Math.hypot(dx, dy) > e.r + s.r * (s.hitScale || 1)) continue;
         s.hit.add(e);
         if (s.rehit) s.hitT.set(e, s.rehit);
         let kb = s.kb;
