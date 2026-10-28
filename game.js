@@ -1591,6 +1591,12 @@
     p.pct += dmg;
     let power = A.force * (D.enemyAttackMul || 1) * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1);
     p.counterT = lvl('x_counter') ? 4 : 0;
+    // 기둥 중앙 근처에서는 한 방에 밖으로 날아가지 않게, 가장자리 직전까지만 밀린다
+    if (p.pct < 198 && Math.hypot(p.x, p.y) < R * 0.5) {
+      const b = p.x * nx + p.y * ny, c = p.x * p.x + p.y * p.y - R * R;
+      const edge = -b + Math.sqrt(Math.max(0, b * b - c));
+      power = Math.min(power, Math.max(0, edge - p.r * 1.5) * 0.9 * FRICTION);
+    }
     if (lvl('grip') && Math.hypot(p.x, p.y) > R * 0.7) power *= ab('grip');
     // 체력 1% 이하(피해 198%+)면 아무리 작은 공격에도 기둥 밖으로 날아간다
     if (p.pct >= 198) {
