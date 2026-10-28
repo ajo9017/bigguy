@@ -2099,7 +2099,7 @@
       const u = a.t / a.def.duration;
       const half = a.arc * Math.PI / 360;
       groundArc(player.x, player.y, a.range + player.r * 0.5, player.face - half, player.face + half,
-        a.spin ? '#8fd3ff' : (a.finisher ? '#ffd84a' : '#ffffff'), 0.35 * (1 - u));
+        a.spin ? '#8fd3ff' : (a.finisher ? ({ ninja: '#ff5a6e', sumo: '#c8a070', boxer: '#ff4040', general: '#bfe8ff', wrestler: '#ffe14a', chef: '#ff8a3c' }[player.ch && player.ch.id] || '#ffd84a') : '#ffffff'), 0.35 * (1 - u));
     }
   }
 
@@ -2293,12 +2293,13 @@
 
     // 팔: 어깨 → 주먹
     const arms = [];
-    let bow = null;
+    let bow = null, spear = null;
     for (const k of [-1, 1]) {
       const shx = k * r * 0.78, shy = -r * 0.6;
       let fx0 = k * r * 1.0, fy0 = r * 0.02 + Math.sin(e.walk + (k > 0 ? 0 : Math.PI)) * r * 0.08;
       let behind = false;
       const a = e.atk;
+      const fin = a && a.finisher && !a.ranged && !a.spin && e.ch ? e.ch.id : null;
       if (a) {
         const u = a.t / a.def.duration;
         let ext = u < 0.4 ? u / 0.4 : Math.max(0, 1 - (u - 0.4) / 0.6);
@@ -2315,6 +2316,27 @@
           if (bowArm) { fx0 = bx; fy0 = by; }
           else { const d = r * 0.95 * pull + r * 0.15; fx0 = bx - Math.cos(e.face) * d; fy0 = by - Math.sin(e.face) * d * SQ; bow.hx = fx0; bow.hy = fy0; }
           behind = Math.sin(e.face) < -0.3;
+        } else if (fin) {
+          // 캐릭터별 강공격(3타째) 전용 동작
+          const s = clamp(u / 0.7, 0, 1), P = (an, d, up) => [Math.cos(an) * r * d, Math.sin(an) * r * d * SQ - r * (up ?? 0.3)];
+          let t;
+          if (fin === 'ninja') t = P(e.face + k * (0.95 - 1.9 * s), 1.9);              // 두 팔이 X자로 교차해 벤다
+          else if (fin === 'sumo') t = P(e.face + k * 0.14, 1.55, 0.5);               // 양손으로 장타
+          else if (fin === 'boxer') {                                                   // 한 팔은 가드, 한 팔은 큰 훅
+            if (k === 1) t = P(e.face - 1.2 + 2.4 * s, 1.8);
+            else { t = [k * r * 0.4, -r * 0.7]; ext = 1; }
+          } else if (fin === 'general') {                                               // 양손으로 창을 찌른다
+            t = k === 1 ? P(e.face, 2.3 - 0.9 * (1 - ext)) : P(e.face, 1.2 - 0.3 * (1 - ext));
+            spear = { ang: e.face, ext };
+          } else if (fin === 'wrestler') t = P(e.face + k * (1.45 - 2.5 * s), 1.8, 0.5); // 두 팔로 라리어트
+          else if (fin === 'chef') {                                                    // 프라이팬을 머리 위로 들었다가 내려친다
+            const up = clamp(u / 0.25, 0, 1), dn = clamp((u - 0.25) / 0.2, 0, 1);
+            const hi = [k * r * 0.35, -r * 2.2], fw = P(e.face, 1.8, 0.1);
+            t = [hi[0] + (fw[0] - hi[0]) * dn, hi[1] + (fw[1] - hi[1]) * dn];
+            t = [fx0 + (t[0] - fx0) * up, fy0 + (t[1] - fy0) * up]; ext = 1;
+          } else t = P(ang, 1.75);
+          fx0 += (t[0] - fx0) * ext; fy0 += (t[1] - fy0) * ext;
+          behind = fin === 'chef' ? false : (fin === 'boxer' && k !== 1) ? false : Math.sin(e.face) < -0.3;
         } else if (punching) {
           const tx = Math.cos(ang) * r * 1.75, ty = Math.sin(ang) * r * 1.75 * SQ - r * 0.3;
           fx0 += (tx - fx0) * ext; fy0 += (ty - fy0) * ext;
@@ -2399,6 +2421,17 @@
 
     for (const m of arms) if (!m.behind) drawArm(m);
     if (bow) drawBow(bow, e.face, r, lw, line);
+    if (spear) {
+      const dx = Math.cos(spear.ang), dy = Math.sin(spear.ang) * SQ, b = -r * 0.3;
+      const x0 = dx * r * 0.2, y0 = dy * r * 0.2 + b, x1 = dx * r * (2.6 + 1.0 * spear.ext), y1 = dy * r * (2.6 + 1.0 * spear.ext) + b;
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = r * 0.12; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      ctx.fillStyle = '#e8e8f0'; ctx.strokeStyle = line; ctx.lineWidth = lw;
+      const nx = -dy, ny = dx, nl = Math.hypot(nx, ny) || 1;
+      ctx.beginPath(); ctx.moveTo(x1 + dx * r * 0.5, y1 + dy * r * 0.5);
+      ctx.lineTo(x1 + nx / nl * r * 0.16, y1 + ny / nl * r * 0.16); ctx.lineTo(x1 - nx / nl * r * 0.16, y1 - ny / nl * r * 0.16);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
 
     // 넓은 소매가 어깨를 덮는다
     for (const k of [-1, 1]) {
