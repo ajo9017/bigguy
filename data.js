@@ -422,7 +422,7 @@ window.GAME_DATA = {
       attack: { range: 74, arc: 80, damage: 4, knockback: 330, duration: 0.15, active: [0.03, 0.09], comboWindow: 0.35, finisherMul: 2.8, lunge: 60, stunMul: 0.8 },
       look: { skin: '#b9774c', coat: '#c1121f', trim: '#ffd84a', shorts: '#c1121f', sock: '#ffffff', band: '#ffd84a', glove: '#e63946', mark: '拳' } },
     { id: 'general', name: '창술 장군', unlock: { stat: 'bestWave', need: 8, text: '웨이브 8 도달' }, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁지만 3타째 돌려찌르기는 더 멀리 닿는다.',
-      attack: { range: 128, growReach: 0.25, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30, finRange: 1.35 },
+      attack: { range: 128, growReach: 0.25, arc: 36, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30, finRange: 1.35 },
       look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
     { id: 'wrestler', name: '프로 레슬러', unlock: { stat: 'bestScore', need: 3000, text: '최고 점수 3000' }, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리고, 3타째는 온몸을 던져 더 강하게 날린다.',
       attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.5, lunge: 150, finLunge: 1.8 },
