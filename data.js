@@ -179,7 +179,7 @@ window.GAME_DATA = {
     { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', cap: 25, lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
     { id: 'second_wind', icon: '🪽', name: '낙법',        max: 6, grow: 1, lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
     // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
-    { id: 'giant',       icon: '🗿', name: '거대화',      cap: 13, lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
+    { id: 'giant',       icon: '🗿', name: '거대화',      max: 5, cap: 13, lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
     // 특별 능력: 효과는 game.js에서 id로 읽는다
     { id: 'vampire',     icon: '🧛', name: '흡혈',        cap: 0.5, lv: [0.1, 0.2, 0.3],         desc: v => `공격이 적중할 때마다 체력 회복 +${v}%` },
     { id: 'execute',     icon: '🎯', name: '마무리 일격', lv: [1.3, 1.6, 2.0],   desc: v => `피해% 100 이상인 적에게 넉백 x${v}` },
@@ -225,7 +225,7 @@ window.GAME_DATA = {
       attack: { range: 74, arc: 80, damage: 4, knockback: 330, duration: 0.15, active: [0.03, 0.09], comboWindow: 0.35, finisherMul: 2.8, lunge: 60 },
       look: { skin: '#b9774c', coat: '#c1121f', trim: '#ffd84a', shorts: '#c1121f', sock: '#ffffff', band: '#ffd84a', glove: '#e63946', mark: '拳' } },
     { id: 'general', name: '창술 장군', price: 200, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁다.',
-      attack: { range: 128, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30 },
+      attack: { range: 128, growReach: 0.25, arc: 45, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30 },
       look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
     { id: 'wrestler', name: '프로 레슬러', price: 300, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리는 강타자.',
       attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.1, lunge: 150 },

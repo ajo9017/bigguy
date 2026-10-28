@@ -938,7 +938,7 @@
     const finisher = p.combo === 3;
     const spin = finisher && !a.ranged && lvl('cyclone') > 0;
     const ranged = finisher && !!a.ranged;
-    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * p.grow;
+    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1));
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0)) };
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
