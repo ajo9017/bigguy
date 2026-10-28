@@ -983,6 +983,7 @@
         if (e.pct >= 100) kb *= ab('execute', 1);
         const nx = Math.cos(s.ang), ny = Math.sin(s.ang);
         hitEnemy(e, nx, ny, s.dmg, kb, s.heavy);
+        elementHit(e);
         const vamp = ab('vampire', 0);
         if (vamp && player.pct > 0) player.pct = Math.max(0, player.pct - vamp);
         if (s.boom) {
@@ -1152,6 +1153,7 @@
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
+        elementHit(e);
         const vamp = ab('vampire', 0);
         if (vamp && p.pct > 0) {
           p.pct = Math.max(0, p.pct - vamp);
@@ -1164,6 +1166,25 @@
       pushAround(p, ab('shockwave'), 4, 450, true, a.hit);
     }
     if (a.t >= def.duration) p.atk = null;
+  }
+
+  // 속성 능력(불꽃 주먹, 얼음 타격, 번개 타격): 내 공격이 적중했을 때만 붙는다
+  function elementHit(e) {
+    if (lvl('fire_fist')) { e.burnT = 3; e.burnDps = ab('fire_fist'); }
+    if (lvl('frost')) {
+      const t = ab('frost') * (e.def.boss ? 0.5 : 1);
+      if (t > (e.frozen || 0)) { e.frozen = t; ring(e.x, e.y, e.r, '#a8dcff', e.r * 0.8); }
+    }
+    if (lvl('spark')) {
+      const near = enemies.filter(o => o !== e && activeEnemy(o) && o.z > -1 && Math.hypot(o.x - e.x, o.y - e.y) < 170)
+        .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, 2);
+      for (const o of near) {
+        o.pct += ab('spark');
+        o.flash = 0.12;
+        ring(o.x, o.y, o.r, '#fff35c', o.r * 0.7);
+        text(o.x, o.y, o.r * 2.2, `${Math.round(o.pct)}%`, '#fff35c', 16);
+      }
+    }
   }
 
   function hitEnemy(e, nx, ny, dmg, kb, heavy) {
@@ -1233,6 +1254,10 @@
 
   function updateEnemy(e, dt) {
     if (e.falling) return;
+    if (e.burnT > 0) {
+      e.burnT -= dt; e.pct += e.burnDps * dt;
+      if (Math.random() < dt * 10) burst(e.x, e.y, e.r, '#ff8a3c', 1, 90);
+    }
     if (e.frozen > 0) {
       e.frozen -= dt;
       if (e.state !== 'spawn') { e.state = 'stun'; e.hitstun = Math.max(e.hitstun, e.frozen); }

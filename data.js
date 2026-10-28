@@ -198,6 +198,10 @@ window.GAME_DATA = {
     { id: 'dash_ghost',  icon: '👻', name: '잔상 대시',   cap: 1.6, lv: [0.4, 0.7, 1.0],  desc: v => `대시 후 무적 시간 +${v}초` },
     { id: 'dash_ram',    icon: '🐗', name: '돌진 박치기', cap: 1400, lv: [450, 600, 780], desc: v => `대시로 부딪힌 적을 날려버림 (힘 ${v})` },
     { id: 'dash_quake',  icon: '🌋', name: '착지 충격',   cap: 300, lv: [100, 130, 165], desc: v => `대시가 끝나면 반경 ${v} 충격파` },
+    // 속성 공격: 내 공격이 적중할 때 붙는 추가 효과
+    { id: 'fire_fist',   icon: '🔥', name: '불꽃 주먹',   cap: 30, lv: [4, 7, 10],        desc: v => `공격에 맞은 적이 3초간 불타 초당 피해% +${v}` },
+    { id: 'frost',       icon: '❄️', name: '얼음 타격',   cap: 2.5, lv: [0.5, 0.8, 1.1],   desc: v => `공격에 맞은 적이 ${v}초간 얼어붙음 (보스는 절반)` },
+    { id: 'spark',       icon: '⚡', name: '번개 타격',   cap: 40, lv: [8, 13, 18],       desc: v => `공격 적중 시 주변 적 둘에게 번개가 튀어 피해% +${v}` },
     { id: 'regen',       icon: '🌿', name: '재생',        cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 
