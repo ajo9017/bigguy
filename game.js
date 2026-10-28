@@ -1058,11 +1058,14 @@
     for (const s of shots) {
       const step = Math.hypot(s.vx, s.vy) * dt;
       s.x += s.vx * dt; s.y += s.vy * dt; s.left -= step;
+      if (s.rehit) for (const [e, t] of s.hitT) { if (t <= dt) s.hitT.delete(e); else s.hitT.set(e, t - dt); }
       for (const e of enemies) {
-        if (s.dead || s.hit.has(e) || !activeEnemy(e) || e.z < -1) continue;
+        if (s.dead || !activeEnemy(e) || e.z < -1) continue;
+        if (s.rehit ? s.hitT.has(e) : s.hit.has(e)) continue;
         const dx = e.x - s.x, dy = e.y - s.y;
         if (Math.hypot(dx, dy) > e.r + s.r) continue;
         s.hit.add(e);
+        if (s.rehit) s.hitT.set(e, s.rehit);
         let kb = s.kb;
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (!s.special) kb *= specialKb(player);
@@ -1140,7 +1143,7 @@
       const ang = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : p.face, sp = 360;
       shots.push({
         x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
-        r: 36, color: '#8b857a', shape: 'rock', left: R * 1.7, dmg: 8, kb: ab('rock_roll'), heavy: true, pierce: true, boom: 0, hit: new Set(), special: true,
+        r: 36, color: '#8b857a', shape: 'rock', left: R * 1.7, dmg: 8, kb: ab('rock_roll'), heavy: true, pierce: true, boom: 0, hit: new Set(), rehit: 0.1, hitT: new Map(), special: true,
       });
       text(p.x, p.y, p.r * 3, '바위 굴러간다!', '#d9d2c4', 20);
       Sfx.play('whoosh');
