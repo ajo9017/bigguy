@@ -151,7 +151,7 @@ window.GAME_DATA = {
     },
   },
 
-  // 웨이브 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
+  // 레벨업 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
   // lv[n]은 레벨 n+1일 때의 값이고, desc는 그 값을 받아 설명을 만든다. 효과 구현은 game.js에서 id로 찾는다.
   // lv 배열 다음 레벨부터는 마지막 한 단계 변화량 x abilityGrow(능력별 grow)씩 계속 변하고, cap에서 멈춘다(넘으면 안 되는 한계값)
   // melee: true = 근접 공격에서만 효과가 있는 능력(원거리 캐릭터 선택지에서 제외)
@@ -167,7 +167,7 @@ window.GAME_DATA = {
     { id: 'rapid',       icon: '⚡', name: '연타',        cap: 2.5, lv: [1.15, 1.3, 1.45], desc: v => `공격 속도 x${v}` },
     { id: 'tough',       icon: '🛡️', name: '맷집',        cap: 0.3, lv: [0.85, 0.72, 0.6], desc: v => `받는 피해% x${v}` },
     { id: 'grip',        icon: '🦶', name: '발끝 버티기', cap: 0.25, lv: [0.8, 0.65, 0.5],  desc: v => `가장자리 근처에서 받는 넉백 x${v}` },
-    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `웨이브 클리어 때 피해% -${v} (선택 즉시도 회복)` },
+    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `레벨업 때마다 피해% -${v} (선택 즉시도 회복)` },
     { id: 'cyclone', melee: true,     icon: '🌪️', name: '회오리 펀치', cap: 2, lv: [1, 1.15, 1.3],    desc: v => v > 1 ? `3타째가 360° 회전 공격 (범위 x${v})` : '3타째가 360° 회전 공격' },
     { id: 'shockwave', melee: true,   icon: '💥', name: '충격파',      cap: 320, lv: [120, 150, 185],   desc: v => `3타째 끝에 반경 ${v} 충격파` },
     { id: 'counter',     icon: '🔥', name: '분노 반격',   lv: [500, 700, 900],   desc: v => `맞으면 주변 적을 날려버림 (힘 ${v})` },
