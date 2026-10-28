@@ -1014,7 +1014,7 @@
           ring(s.x, s.y, 6, s.color, s.boom / 3);
           burst(s.x, s.y, 8, s.color, 14, 420);
           pushAround({ x: s.x, y: s.y }, s.boom, 3, 520, true, s.hit);
-          fx.shake = Math.max(fx.shake, 12 * 0.8);
+          fx.shake = Math.max(fx.shake, 12 * 0.64);
           s.dead = true;
         } else if (!s.pierce) s.dead = true;
       }
@@ -1196,7 +1196,7 @@
     if (!a.ranged && a.finisher && def.finQuake && !a.quaked && a.t > def.active[1]) {
       a.quaked = true;
       pushAround(p, def.finQuake, 3, 380, true, a.hit);
-      fx.shake = Math.max(fx.shake, 10 * 0.8);
+      fx.shake = Math.max(fx.shake, 10 * 0.64);
     }
     if (a.t >= def.duration) p.atk = null;
   }
@@ -1239,7 +1239,7 @@
     // 타격감: 퍼센트가 높을수록 멈춤과 흔들림이 커지고, 모든 타격에 충격 링과 불꽃이 번진다
     const big = Math.min(1, power / 900);
     fx.hitstop = Math.max(fx.hitstop, (heavy ? 0.09 : 0.055) + big * 0.04);
-    fx.shake = Math.max(fx.shake, ((heavy ? 10 : 6) + big * 6) * (heavy ? 0.8 : 0.2));
+    fx.shake = Math.max(fx.shake, ((heavy ? 10 : 6) + big * 6) * (heavy ? 0.64 : 0.2));
     if (heavy) fx.zoom = Math.max(fx.zoom, 0.03 + big * 0.03);
     e.sqx = 1.5; e.sqy = 0.62;
     burst(e.x, e.y, e.r, heavy ? '#ffb347' : '#ffffff', heavy ? 16 : 10, heavy ? 420 : 300);
