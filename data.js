@@ -90,6 +90,28 @@ window.GAME_DATA = {
       zone: { every: 4.5, radius: 85, windup: 1.1, damage: 14, force: 900, count: 1 },
     },
 
+    // 30웨이브 이후(무한 웨이브)에 섞여 나오는 공격 패턴이 다른 적
+    // jumper = 멀리서 점프해 플레이어 자리에 내려찍기(attack.radius 범위), guard = 앞에서 맞으면 넉백·피해 x guard(옆·뒤나 연타로 뚫는다)
+    // blink = every초마다 플레이어 등 뒤로 순간이동해서 바로 공격, ghost = 반투명하게 그린다
+    frog: {
+      name: '점프 개구리', color: '#3fbf6a', radius: 24, mass: 1.6, speed: 70, behavior: 'jumper', score: 500,
+      attack: { range: 300, windup: 0.6, jumpTime: 0.7, recover: 0.9, radius: 75, damage: 14, force: 950 },
+    },
+    guard: {
+      name: '방패병', color: '#6b7fa8', radius: 26, mass: 2.4, speed: 70, behavior: 'walker', score: 550, guard: 0.25,
+      attack: { range: 56, windup: 0.6, recover: 0.8, damage: 16, force: 900 },
+    },
+    ghost: {
+      name: '유령', color: '#c9d6ff', radius: 20, mass: 1.0, speed: 90, behavior: 'walker', score: 500, ghost: true,
+      blink: { every: 4.5, dist: 75 },
+      attack: { range: 50, windup: 0.45, recover: 0.7, damage: 14, force: 900 },
+    },
+    stomper: {
+      name: '쿵쿵이', color: '#a85f3a', radius: 30, mass: 3.2, speed: 60, behavior: 'walker', score: 550, teeth: true,
+      slam: { every: 3.5, radius: 120, windup: 0.75, damage: 13, force: 900 },
+      attack: { range: 60, windup: 0.8, recover: 1.0, damage: 16, force: 900 },
+    },
+
     // 보스: 5웨이브마다 하나씩, 매번 다른 보스가 나온다 (반복 없음). boss: true
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
@@ -127,45 +149,48 @@ window.GAME_DATA = {
     },
   },
 
-  // 웨이브 클리어 때 3개 중 하나를 고르는 특수능력. lv 배열 길이 = 최대 레벨(3).
+  // 웨이브 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
   // lv[n]은 레벨 n+1일 때의 값이고, desc는 그 값을 받아 설명을 만든다. 효과 구현은 game.js에서 id로 찾는다.
+  // lv 배열 다음 레벨부터는 마지막 한 단계 변화량 x abilityGrow(능력별 grow)씩 계속 변하고, cap에서 멈춘다(넘으면 안 되는 한계값)
   // melee: true = 근접 공격에서만 효과가 있는 능력(원거리 캐릭터 선택지에서 제외)
+  abilityMaxLevel: 20,
+  abilityGrow: 0.5,
   abilities: [
     { id: 'iron_fist',   icon: '👊', name: '강철 주먹',   lv: [1.2, 1.4, 1.65],  desc: v => `공격 넉백 x${v}` },
     { id: 'pump',        icon: '💪', name: '근육 펌핑',   lv: [1.3, 1.6, 2.0],   desc: v => `공격으로 올리는 피해% x${v}` },
     { id: 'heavy',       icon: '🪨', name: '묵직한 몸',   lv: [1.25, 1.5, 1.8],  desc: v => `몸무게 x${v} (덜 날아감)` },
-    { id: 'quick_feet',  icon: '👟', name: '날쌘 발',     lv: [1.12, 1.24, 1.36], desc: v => `이동 속도 x${v}` },
-    { id: 'long_reach',  icon: '🦍', name: '긴 팔',       lv: [1.15, 1.3, 1.45], desc: v => `공격 사거리 x${v}` },
-    { id: 'wide_swing', melee: true,  icon: '🌀', name: '넓은 스윙',   lv: [30, 60, 90],      desc: v => `공격 범위 각도 +${v}°` },
-    { id: 'rapid',       icon: '⚡', name: '연타',        lv: [1.15, 1.3, 1.45], desc: v => `공격 속도 x${v}` },
-    { id: 'tough',       icon: '🛡️', name: '맷집',        lv: [0.85, 0.72, 0.6], desc: v => `받는 피해% x${v}` },
-    { id: 'grip',        icon: '🦶', name: '발끝 버티기', lv: [0.8, 0.65, 0.5],  desc: v => `가장자리 근처에서 받는 넉백 x${v}` },
-    { id: 'recovery',    icon: '🍙', name: '주먹밥',      lv: [7, 12, 17],       desc: v => `웨이브 클리어 때 피해% -${v} (선택 즉시도 회복)` },
-    { id: 'cyclone', melee: true,     icon: '🌪️', name: '회오리 펀치', lv: [1, 1.15, 1.3],    desc: v => v > 1 ? `3타째가 360° 회전 공격 (범위 x${v})` : '3타째가 360° 회전 공격' },
-    { id: 'shockwave', melee: true,   icon: '💥', name: '충격파',      lv: [120, 150, 185],   desc: v => `3타째 끝에 반경 ${v} 충격파` },
+    { id: 'quick_feet',  icon: '👟', name: '날쌘 발',     cap: 2.2, lv: [1.12, 1.24, 1.36], desc: v => `이동 속도 x${v}` },
+    { id: 'long_reach',  icon: '🦍', name: '긴 팔',       cap: 2.5, lv: [1.15, 1.3, 1.45], desc: v => `공격 사거리 x${v}` },
+    { id: 'wide_swing', melee: true,  icon: '🌀', name: '넓은 스윙',   cap: 250, lv: [30, 60, 90],      desc: v => `공격 범위 각도 +${v}°` },
+    { id: 'rapid',       icon: '⚡', name: '연타',        cap: 2.5, lv: [1.15, 1.3, 1.45], desc: v => `공격 속도 x${v}` },
+    { id: 'tough',       icon: '🛡️', name: '맷집',        cap: 0.3, lv: [0.85, 0.72, 0.6], desc: v => `받는 피해% x${v}` },
+    { id: 'grip',        icon: '🦶', name: '발끝 버티기', cap: 0.25, lv: [0.8, 0.65, 0.5],  desc: v => `가장자리 근처에서 받는 넉백 x${v}` },
+    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `웨이브 클리어 때 피해% -${v} (선택 즉시도 회복)` },
+    { id: 'cyclone', melee: true,     icon: '🌪️', name: '회오리 펀치', cap: 2, lv: [1, 1.15, 1.3],    desc: v => v > 1 ? `3타째가 360° 회전 공격 (범위 x${v})` : '3타째가 360° 회전 공격' },
+    { id: 'shockwave', melee: true,   icon: '💥', name: '충격파',      cap: 320, lv: [120, 150, 185],   desc: v => `3타째 끝에 반경 ${v} 충격파` },
     { id: 'counter',     icon: '🔥', name: '분노 반격',   lv: [500, 700, 900],   desc: v => `맞으면 주변 적을 날려버림 (힘 ${v})` },
     { id: 'thorns',      icon: '🌵', name: '가시 근육',   lv: [8, 14, 20],       desc: v => `나를 때린 적 피해% +${v}, 튕겨냄` },
     { id: 'bowling',     icon: '🎳', name: '볼링',        lv: [1.4, 1.8, 2.2],   desc: v => `날아간 적끼리 부딪힐 때 충격 x${v}` },
     { id: 'bounty',      icon: '💰', name: '현상금',      lv: [1.25, 1.5, 2.0],  desc: v => `낙하 처치 점수 x${v}` },
-    { id: 'intimidate',  icon: '😠', name: '위압감',      lv: [1.2, 1.4, 1.6],   desc: v => `적의 공격 준비 시간 x${v}` },
-    { id: 'roar',        icon: '📣', name: '기합',        lv: [8, 6, 4.5],       desc: v => `${v}초마다 기합으로 주변 적을 밀어냄` },
-    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
-    { id: 'second_wind', icon: '🪽', name: '낙법',        lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
+    { id: 'intimidate',  icon: '😠', name: '위압감',      cap: 2.5, lv: [1.2, 1.4, 1.6],   desc: v => `적의 공격 준비 시간 x${v}` },
+    { id: 'roar',        icon: '📣', name: '기합',        cap: 2, lv: [8, 6, 4.5],       desc: v => `${v}초마다 기합으로 주변 적을 밀어냄` },
+    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', cap: 25, lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
+    { id: 'second_wind', icon: '🪽', name: '낙법',        max: 6, grow: 1, lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
     // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
-    { id: 'giant',       icon: '🗿', name: '거대화',      lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
+    { id: 'giant',       icon: '🗿', name: '거대화',      cap: 13, lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
     // 특별 능력: 효과는 game.js에서 id로 읽는다
-    { id: 'vampire',     icon: '🧛', name: '흡혈',        lv: [1, 2, 3],         desc: v => `공격이 적중할 때마다 내 피해% -${v}` },
+    { id: 'vampire',     icon: '🧛', name: '흡혈',        cap: 5, lv: [1, 2, 3],         desc: v => `공격이 적중할 때마다 내 피해% -${v}` },
     { id: 'execute',     icon: '🎯', name: '마무리 일격', lv: [1.3, 1.6, 2.0],   desc: v => `피해% 100 이상인 적에게 넉백 x${v}` },
-    { id: 'lunge', melee: true,       icon: '🚀', name: '돌격 펀치',   lv: [1.8, 2.6, 3.4],   desc: v => `공격할 때 앞으로 나가는 거리 x${v}` },
+    { id: 'lunge', melee: true,       icon: '🚀', name: '돌격 펀치',   cap: 6, lv: [1.8, 2.6, 3.4],   desc: v => `공격할 때 앞으로 나가는 거리 x${v}` },
     { id: 'berserk',     icon: '🩸', name: '광전사',      lv: [0.3, 0.5, 0.8],   desc: v => `내 피해%가 높을수록 넉백 증가 (100%당 +${Math.round(v * 100)}%)` },
-    { id: 'dodge',       icon: '🥷', name: '회피 본능',   lv: [0.8, 1.1, 1.5],   desc: v => `맞은 뒤 무적 시간 ${v}초` },
+    { id: 'dodge',       icon: '🥷', name: '회피 본능',   cap: 2.5, lv: [0.8, 1.1, 1.5],   desc: v => `맞은 뒤 무적 시간 ${v}초` },
     { id: 'meat_lover',  icon: '🍖', name: '고기 사랑',   lv: [1.5, 2, 2.5],     desc: v => `회복 고기 효과 x${v}` },
-    { id: 'stun',        icon: '💫', name: '기절 타격',   lv: [1.4, 1.8, 2.2],   desc: v => `맞은 적의 경직 시간 x${v}` },
-    { id: 'chain',       icon: '🔗', name: '연쇄 유지',   lv: [1.6, 2.2, 3],     desc: v => `낙하 연쇄 점수 유지 시간 ${v}초` },
+    { id: 'stun',        icon: '💫', name: '기절 타격',   cap: 4, lv: [1.4, 1.8, 2.2],   desc: v => `맞은 적의 경직 시간 x${v}` },
+    { id: 'chain',       icon: '🔗', name: '연쇄 유지',   cap: 6, lv: [1.6, 2.2, 3],     desc: v => `낙하 연쇄 점수 유지 시간 ${v}초` },
     { id: 'last_stand',  icon: '🧗', name: '배수진',      lv: [1.3, 1.6, 2.0],   desc: v => `기둥 가장자리 근처에서 공격 넉백 x${v}` },
-    { id: 'shield',      icon: '🔮', name: '방패막',      lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
-    { id: 'gold_hand',   icon: '🪙', name: '황금손',      lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
-    { id: 'regen',       icon: '🌿', name: '재생',        lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
+    { id: 'shield',      icon: '🔮', name: '방패막',      cap: 2.5, lv: [14, 10, 7],       desc: v => `${v}초마다 첫 공격 한 번을 막아줌` },
+    { id: 'gold_hand',   icon: '🪙', name: '황금손',      cap: 3, lv: [1.25, 1.5, 2.0],  desc: v => `게임이 끝날 때 얻는 골드 x${v}` },
+    { id: 'regen',       icon: '🌿', name: '재생',        cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
   ],
 
   // 게임이 끝나면 골드를 얻는다: round(점수 / perScore + 웨이브 * perWave). 골드로 캐릭터를 산다.
@@ -211,7 +236,7 @@ window.GAME_DATA = {
       look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },
   ],
 
-  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브가 endlessScale 배율로 계속 늘어난다.
+  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후는 endless 설정을 따른다.
   waves: [
     { grunt: 3 },                                              // 1
     { grunt: 5 },                                              // 2
@@ -247,7 +272,25 @@ window.GAME_DATA = {
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
-  endlessScale: 1.25,
+  // 필드 아이템: 매 웨이브 chance 확률로 delay[0]~delay[1]초 사이에 하나가 떨어진다(weight 가중치). life초 뒤 사라진다.
+  // 주우면 효과가 바로 나거나(bomb, ice, gem) time초 동안 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
+  itemDrop: { chance: 0.75, delay: [4, 12], radius: 18 },
+  items: [
+    { id: 'bomb',    icon: '💣', name: '폭탄',         weight: 3, life: 15, range: 230, force: 950, desc: '주변 적을 모두 날려버림' },
+    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '6초 동안 무적' },
+    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '8초 동안 이동·공격 속도 x1.4' },
+    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '10초 동안 공격 넉백 x1.5' },
+    { id: 'ice',     icon: '🧊', name: '얼음 결정',     weight: 2, life: 15, time: 3, desc: '3초 동안 모든 적이 얼어붙음 (보스는 절반)' },
+    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 웨이브)' },
+  ],
+
+  // 마지막 웨이브(30) 이후: 마릿수는 count로 고정하고 pool(가중치)에서 무작위로 섞는다.
+  // 대신 웨이브마다 적이 단단해지고(몸무게 x(1 + tough * n), n = 30 이후 몇 번째 웨이브) 정예가 섞인다.
+  // 정예: 확률 elite + eliteStep * n (최대 eliteMax), 몸무게 x eliteMass, 크기 x eliteScale, 금색 테두리
+  endless: {
+    count: 16, tough: 0.08, elite: 0.1, eliteStep: 0.02, eliteMax: 0.45, eliteMass: 1.7, eliteScale: 1.18,
+    pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1 },
+  },
   spawnInterval: 0.9,
   maxAlive: 7,
 };

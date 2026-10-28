@@ -7,6 +7,7 @@
   const FRICTION = 4;      // 넉백 속도 감쇠
   const GRAVITY = 1700;
   const ABIL = Object.fromEntries(D.abilities.map(a => [a.id, a]));
+  const ITEM = Object.fromEntries(D.items.map(it => [it.id, it]));
 
   const canvas = document.getElementById('game');
   let ctx = canvas.getContext('2d');
@@ -78,8 +79,8 @@
       }
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     },
-    tone(f0, f1, dur, type, vol) {
-      const c = this.ctx, t = c.currentTime;
+    tone(f0, f1, dur, type, vol, delay = 0) {
+      const c = this.ctx, t = c.currentTime + delay;
       const o = c.createOscillator(), g = c.createGain();
       o.type = type;
       o.frequency.setValueAtTime(f0, t);
@@ -112,14 +113,22 @@
         case 'wave': this.tone(440, 880, 0.25, 'square', 0.07); break;
         case 'pick': this.tone(600, 1200, 0.18, 'triangle', 0.12); break;
         case 'roar': this.tone(120, 60, 0.4, 'sawtooth', 0.15); this.noise(0.3, 0.2, 600); break;
+        case 'fanfare':
+          // 빰빠밤 빠~밤!
+          [[523, 0, 0.14], [523, 0.15, 0.1], [523, 0.27, 0.1], [659, 0.39, 0.32], [523, 0.75, 0.14], [784, 0.92, 0.7]].forEach(([f, d, l]) => {
+            this.tone(f, f * 1.003, l, 'square', 0.07, d);
+            this.tone(f / 2, f / 2, l, 'triangle', 0.08, d);
+          });
+          break;
+        case 'pop': this.noise(0.35, 0.35, 2400); this.tone(900, 300, 0.25, 'sine', 0.05); break;
       }
     },
   };
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0,
-    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [],
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0,
+    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [];
@@ -192,13 +201,23 @@
 
   // ---------- 능력 ----------
   const lvl = id => (player && player.abil[id]) || 0;
-  const ab = (id, dflt) => { const l = lvl(id); return l ? ABIL[id].lv[l - 1] : dflt; };
+  const maxLv = a => a.max || D.abilityMaxLevel;
+  // 레벨 l(1부터)의 값. lv 배열을 넘는 레벨은 마지막 변화량 x grow씩 이어가고 cap에서 멈춘다
+  function abVal(a, l) {
+    const n = a.lv.length;
+    if (l <= n) return a.lv[l - 1];
+    const step = a.lv[n - 1] - a.lv[n - 2];
+    let v = a.lv[n - 1] + step * (a.grow || D.abilityGrow) * (l - n);
+    if (a.cap != null) v = step > 0 ? Math.min(v, a.cap) : Math.max(v, a.cap);
+    return Math.round(v * 100) / 100;
+  }
+  const ab = (id, dflt) => { const l = lvl(id); return l ? abVal(ABIL[id], l) : dflt; };
   const abilSummary = () => Object.entries(player.abil).map(([id, l]) => `${ABIL[id].name} Lv${l}`).join(', ');
 
   function openPick() {
-    // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다
+    // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < a.lv.length && !(ranged && a.melee)));
+    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee)));
     if (!pool.length) { startWave(game.wave + 1); return; }
     game.choices = pool.slice(0, 3);
     game.picking = true;
@@ -210,7 +229,7 @@
       const b = document.createElement('button');
       b.className = 'card';
       b.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.name}</div>` +
-        `<div class="clv">${cur ? `Lv ${cur} → ${cur + 1}` : 'NEW'}</div><div class="cdesc">${a.desc(a.lv[cur])}</div></div>` +
+        `<div class="clv">${cur ? `Lv ${cur} → ${cur + 1}` : 'NEW'}</div><div class="cdesc">${a.desc(abVal(a, cur + 1))}</div></div>` +
         (isTouch ? '' : `<div class="ckey">${i + 1}</div>`);
       b.addEventListener('click', () => choose(i));
       ui.cards.appendChild(b);
@@ -257,6 +276,7 @@
     const labels = i.labels.map(l => l.name);
     if (i.state === 'closed') return i.state_reason === 'not_planned' ? ['no', '반영 안 함'] : ['done', '✅ 반영됨'];
     if (labels.includes('작업중')) return ['work', '🔧 작업 중'];
+    if (labels.includes('반영대기')) return ['work', '🕒 반영 예정'];
     if (labels.includes('일부 반영')) return ['part', '🟡 일부 반영'];
     return ['wait', '⏳ 대기 중'];
   }
@@ -605,14 +625,14 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     const ch = charById(selChar);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, ch,
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, giantT: 0, giant: 0, grow: 1, shieldT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
       attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
     if (ch.skill && ABIL[ch.skill]) {
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -665,13 +685,15 @@
 
   function waveSpec(i) {
     if (i < D.waves.length) return D.waves[i];
-    // 보스는 반복하지 않는다: 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브를 늘려서 쓴다
-    let li = D.waves.length - 1;
-    while (li > 0 && Object.keys(D.waves[li]).some(k => D.enemies[k] && D.enemies[k].boss)) li--;
-    const last = D.waves[li];
-    const mul = Math.pow(D.endlessScale, i - D.waves.length + 1);
+    // 무한 웨이브: 마릿수는 고정, 종류는 가중치대로 무작위 (보스는 반복하지 않는다)
+    const E = D.endless, kinds = Object.keys(E.pool).filter(k => D.enemies[k]);
+    const total = kinds.reduce((t, k) => t + E.pool[k], 0);
     const spec = {};
-    for (const k in last) if (!(D.enemies[k] && D.enemies[k].boss)) spec[k] = Math.round(last[k] * mul);
+    for (let n = 0; n < E.count; n++) {
+      let r = Math.random() * total, k = kinds[0];
+      for (const c of kinds) { r -= E.pool[c]; if (r <= 0) { k = c; break; } }
+      spec[k] = (spec[k] || 0) + 1;
+    }
     return spec;
   }
 
@@ -689,9 +711,15 @@
     game.bossT = -1;
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
+    game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
     game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
+    if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * endlessN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
+
+  // 30웨이브 이후 몇 번째 웨이브인지 (그 전은 0)
+  const endlessN = () => Math.max(0, game.wave - D.waves.length + 1);
+  const eliteChance = () => Math.min(D.endless.eliteMax, D.endless.elite + D.endless.eliteStep * endlessN());
 
   function spawnEnemy(type) {
     const def = D.enemies[type];
@@ -708,6 +736,12 @@
     e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0; e.zoneT = def.zone ? def.zone.every : 0;
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
+    if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
+    const n = endlessN();
+    if (n && !def.boss) {
+      e.mass *= 1 + D.endless.tough * n;
+      if (Math.random() < eliteChance()) { e.elite = true; e.mass *= D.endless.eliteMass; e.r *= D.endless.eliteScale; }
+    }
     enemies.push(e);
   }
 
@@ -715,6 +749,7 @@
     if (game.banner) { game.banner.t -= dt; if (game.banner.t <= 0) game.banner = null; }
     if (player.falling) return;
     if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
+    if (game.itemT > 0 && (game.itemT -= dt) <= 0) dropItem();
     const alive = enemies.filter(e => !e.falling).length;
     if (game.queue.length) {
       game.spawnT -= dt;
@@ -735,8 +770,9 @@
       }
     } else if (alive === 0) {
       if (game.clearT < 0) {
-        game.clearT = 1.3;
-        game.banner = { text: 'CLEAR!', t: 1.3, max: 1.3 };
+        // 보스 폭죽이 남아 있으면 다 터질 때까지 기다리고, 격파 배너는 덮어쓰지 않는다
+        game.clearT = Math.max(1.3, ...game.fireworks.map(f => f.t + 1));
+        if (!(game.banner && game.banner.boss)) game.banner = { text: 'CLEAR!', t: 1.3, max: 1.3 };
         const heal = ab('recovery', 0);
         if (heal && player.pct > 0) {
           player.pct = Math.max(0, player.pct - heal);
@@ -752,13 +788,60 @@
   // ---------- 회복 고기 ----------
   function dropMeat() {
     const a = rand(0, Math.PI * 2), d = rand(0.15, 0.6) * R;
-    items.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
+    items.push({ kind: 'meat', x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.meat.radius, t: 0 });
     text(0, 0, 200, '고기 투하!', '#ffb36b', 24);
+  }
+
+  // 필드 아이템 (data.js의 items). id를 주면 그 아이템, 없으면 가중치대로 무작위
+  function dropItem(id) {
+    const list = D.items, total = list.reduce((t, it) => t + it.weight, 0);
+    let def = list.find(it => it.id === id);
+    if (!def) {
+      let r = Math.random() * total;
+      def = list.find(it => (r -= it.weight) <= 0) || list[0];
+    }
+    const a = rand(0, Math.PI * 2), d = rand(0.15, 0.65) * R;
+    items.push({ kind: def.id, def, x: Math.cos(a) * d, y: Math.sin(a) * d, z: 500, vz: 0, r: D.itemDrop.radius, t: 0, life: def.life });
+    text(Math.cos(a) * d, Math.sin(a) * d, 200, `${def.icon} ${def.name}!`, '#ffffff', 20);
+  }
+
+  function useItem(it) {
+    const p = player, def = it.def;
+    text(p.x, p.y, p.r * 3.4, `${def.icon} ${def.name}`, '#ffffff', 22);
+    switch (def.id) {
+      case 'bomb':
+        pushAround(p, def.range, 10, def.force, true);
+        ring(p.x, p.y, 4, '#ffb347', def.range / 3);
+        burst(p.x, p.y, p.r, '#ffb347', 24, 520);
+        fx.shake = Math.max(fx.shake, 24); fx.zoom = 0.06;
+        Sfx.play('bighit'); Sfx.play('fall');
+        break;
+      case 'star': p.starT = def.time; p.inv = Math.max(p.inv, def.time); break;
+      case 'drink': p.hasteT = def.time; break;
+      case 'protein': p.powerT = def.time; break;
+      case 'ice':
+        for (const e of enemies) {
+          if (!activeEnemy(e)) continue;
+          e.frozen = e.def.boss ? def.time / 2 : def.time;
+          e.state = 'stun'; e.st = 0; e.hitstun = e.frozen; e.vx = e.vy = 0;
+          burst(e.x, e.y, e.r, '#bfe8ff', 8, 220);
+        }
+        fx.shake = Math.max(fx.shake, 8);
+        break;
+      case 'gem': {
+        const pts = def.score * (game.wave + 1);
+        game.score += pts;
+        text(p.x, p.y, p.r * 2.2, `+${pts}`, '#ffd84a', 24);
+        break;
+      }
+    }
+    Sfx.play('pick');
   }
 
   function updateItems(dt) {
     for (const it of items) {
       it.t += dt;
+      if (it.life != null && (it.life -= dt) <= 0) { it.taken = true; burst(it.x, it.y, 6, '#ffffff', 6, 150); continue; }
       if (it.z > 0) {
         it.vz -= GRAVITY * dt; it.z += it.vz * dt;
         if (it.z <= 0) { it.z = 0; it.vz = 0; burst(it.x, it.y, 2, '#d8d2c0', 8, 200); }
@@ -767,6 +850,7 @@
       const p = player;
       if (p.falling || Math.hypot(p.x - it.x, p.y - it.y) > p.r + it.r) continue;
       it.taken = true;
+      if (it.kind !== 'meat') { useItem(it); continue; }
       const mh = Math.round(D.meat.heal * ab('meat_lover', 1));
       const heal = Math.min(mh, Math.round(p.pct));
       p.pct = Math.max(0, p.pct - mh);
@@ -800,7 +884,8 @@
       p.life -= dt;
       if (p.type === 'spark') {
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-        const f = Math.exp(-5 * dt); p.vx *= f; p.vy *= f; p.vz *= f;
+        const f = Math.exp((p.fw ? -1.8 : -5) * dt); p.vx *= f; p.vy *= f; p.vz *= f;
+        if (p.fw) p.vz -= 220 * dt;
       } else if (p.type === 'text' || p.type === 'cross') {
         p.z += p.vz * dt; p.vz *= Math.exp(-2 * dt);
       }
@@ -857,7 +942,7 @@
     const n = (fin && fin.count) || 1, spread = (fin && fin.spread) || 0;
     const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
     let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul : 1) / (n > 1 ? 1.4 : 1);
-    kb *= 1 + p.pct / 100 * ab('berserk', 0);
+    kb *= (1 + p.pct / 100 * ab('berserk', 0)) * (p.powerT > 0 ? ITEM.protein.mul : 1);
     if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
     const sp = (fin && fin.speed) || R0.speed;
     for (let i = 0; i < n; i++) {
@@ -944,6 +1029,9 @@
     }
 
     if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
+    // 아이템 지속 효과
+    for (const k of ['starT', 'hasteT', 'powerT']) if (p[k] > 0) p[k] -= dt;
+    const haste = p.hasteT > 0 ? ITEM.drink.mul : 1, power = p.powerT > 0 ? ITEM.protein.mul : 1;
 
     // 재생: 5초마다 한 번, 1초당 회복량의 5배를 회복하고 초록 십자가가 뜬다
     const rg = ab('regen', 0);
@@ -981,7 +1069,7 @@
     } else {
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
-      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * (p.atk ? 0.35 : 1);
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? 0.35 : 1);
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
@@ -991,7 +1079,7 @@
 
     const a = p.atk;
     if (!a) return;
-    a.t += dt * ab('rapid', 1);
+    a.t += dt * ab('rapid', 1) * haste;
     const def = a.def;
     if (a.ranged) {
       if (!a.fired && a.t >= def.active[0]) { a.fired = true; fireShots(p, a); }
@@ -1010,7 +1098,7 @@
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
         const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow;
+        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow * power;
         kb *= 1 + p.pct / 100 * ab('berserk', 0);
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
@@ -1030,6 +1118,12 @@
   }
 
   function hitEnemy(e, nx, ny, dmg, kb, heavy) {
+    // 방패병: 정면에서 맞으면 막는다 (밀리는 방향이 바라보는 방향의 반대 = 앞에서 맞음). 경직 중에는 못 막는다
+    if (e.def.guard && e.state !== 'stun' && nx * Math.cos(e.face) + ny * Math.sin(e.face) < -0.4) {
+      dmg *= e.def.guard; kb *= e.def.guard;
+      text(e.x, e.y, e.r * 3, '막음!', '#a8c8ff', 18);
+      ring(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, e.r, '#a8c8ff', e.r * 0.6);
+    }
     e.pct += dmg;
     const power = kb * (1 + e.pct / 80) / e.mass;
     e.vx += nx * power; e.vy += ny * power;
@@ -1048,7 +1142,7 @@
 
   function hitPlayer(e, nx, ny, A = e.def.attack) {
     const p = player;
-    if (p.inv > 0 || p.falling) return;
+    if (p.inv > 0 || p.starT > 0 || p.falling) return;
     if (lvl('shield') && p.shieldT >= ab('shield')) {
       p.shieldT = 0; p.inv = 0.5;
       burst(p.x, p.y, p.r, '#b8a0ff', 14, 320); ring(p.x, p.y, p.r, '#b8a0ff', p.r * 2.2);
@@ -1090,6 +1184,10 @@
 
   function updateEnemy(e, dt) {
     if (e.falling) return;
+    if (e.frozen > 0) {
+      e.frozen -= dt;
+      if (e.state !== 'spawn') { e.state = 'stun'; e.hitstun = Math.max(e.hitstun, e.frozen); }
+    }
     e.st += dt;
     if (e.state === 'spawn') {
       const u = clamp(e.st / 0.7, 0, 1);
@@ -1133,6 +1231,30 @@
           text(e.x, e.y, e.r * 3, '장판!', '#ff7fe0', 22);
           Sfx.play('windup');
         }
+        const bl = e.def.blink;
+        if (bl && (e.blinkT -= dt) <= 0 && d > 110) {
+          // 유령: 플레이어 등 뒤로 순간이동해서 바로 공격 준비
+          e.blinkT = bl.every;
+          burst(e.x, e.y, e.r, '#c9d6ff', 10, 240);
+          let tx = p.x - Math.cos(p.face) * bl.dist, ty = p.y - Math.sin(p.face) * bl.dist;
+          const tl = Math.hypot(tx, ty);
+          if (tl > R * 0.85) { tx *= R * 0.85 / tl; ty *= R * 0.85 / tl; }
+          e.x = tx; e.y = ty; e.vx = e.vy = 0;
+          e.face = Math.atan2(p.y - e.y, p.x - e.x);
+          burst(e.x, e.y, e.r, '#c9d6ff', 10, 240);
+          text(e.x, e.y, e.r * 3, '스윽', '#c9d6ff', 18);
+          e.state = 'windup'; e.st = 0; Sfx.play('windup');
+          break;
+        }
+        if (e.def.behavior === 'jumper') {
+          if (d <= A.range && e.st > 0.4) { e.state = 'windup'; e.st = 0; Sfx.play('windup'); }
+          else {
+            e.x += Math.cos(e.face) * e.def.speed * dt;
+            e.y += Math.sin(e.face) * e.def.speed * dt;
+            e.walk += dt * 10;
+          }
+          break;
+        }
         if (e.def.behavior === 'shooter') {
           // 사거리 안에서 거리를 유지하며 쏜다
           if (d <= A.range && e.st > 0.4) { e.state = 'windup'; e.st = 0; Sfx.play('windup'); }
@@ -1171,10 +1293,32 @@
       case 'windup':
         // 돌진병은 조준을 끝까지 따라오고, 근접형은 전반부까지만 따라온다
         if (charger || e.st < windup * 0.5) e.face = Math.atan2(dy, dx);
-        if (e.st >= windup) { e.state = 'attack'; e.st = 0; e.didHit = false; }
+        if (e.st >= windup) {
+          e.state = 'attack'; e.st = 0; e.didHit = false;
+          if (e.def.behavior === 'jumper') {
+            // 지금 플레이어가 있는 자리로 뛴다 (기둥 안쪽으로 제한)
+            let tx = p.x, ty = p.y;
+            const tl = Math.hypot(tx, ty);
+            if (tl > R * 0.9) { tx *= R * 0.9 / tl; ty *= R * 0.9 / tl; }
+            e.jump = { x0: e.x, y0: e.y, x1: tx, y1: ty };
+          }
+        }
         break;
       case 'attack':
-        if (charger) {
+        if (e.def.behavior === 'jumper') {
+          const J = e.jump, u = clamp(e.st / A.jumpTime, 0, 1);
+          e.x = J.x0 + (J.x1 - J.x0) * u; e.y = J.y0 + (J.y1 - J.y0) * u;
+          e.z = Math.sin(Math.PI * u) * 170; e.vz = 0; e.vx = e.vy = 0;
+          if (u >= 1) {
+            e.z = 0; e.state = 'recover'; e.st = 0; e.jump = null;
+            fx.shake = Math.max(fx.shake, 12);
+            ring(e.x, e.y, 2, '#ffffff', A.radius * 0.35);
+            burst(e.x, e.y, 2, '#d8d2c0', 14, 320);
+            Sfx.play('bighit');
+            const jx = p.x - e.x, jy = p.y - e.y, jd = Math.hypot(jx, jy);
+            if (!playerGone && p.z <= 20 && jd <= A.radius + p.r) hitPlayer(e, jx / (jd || 1), jy / (jd || 1));
+          }
+        } else if (charger) {
           e.x += Math.cos(e.face) * A.dashSpeed * dt;
           e.y += Math.sin(e.face) * A.dashSpeed * dt;
           e.walk += dt * 25;
@@ -1225,12 +1369,36 @@
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
+    if (e.def.boss) bossDefeated(e);
     const adr = ab('adrenaline', 0);
     if (adr && !player.falling && player.pct > 0) {
       player.pct = Math.max(0, player.pct - adr);
       text(player.x, player.y, player.r * 3, `-${adr}%`, '#7dff9a', 18);
     }
     Sfx.play('fall');
+  }
+
+  // 보스 처치: 팡파레와 함께 기둥 위 하늘에 폭죽이 연달아 터진다
+  function bossDefeated(e) {
+    game.banner = { text: '🎉 BOSS 격파! 🎉', sub: e.def.name, color: '#ffd84a', t: 2.6, max: 2.6, boss: true };
+    for (let i = 0; i < 9; i++) game.fireworks.push({ t: 0.25 + i * 0.22 + rand(0, 0.1), x: rand(-0.8, 0.8) * R, y: rand(-0.7, 0.3) * R });
+    fx.shake = Math.max(fx.shake, 16);
+    Sfx.play('fanfare');
+  }
+  const FW_COLORS = ['#ff5a5a', '#ffd84a', '#5affa0', '#5ac8ff', '#c77dff', '#ff9bea', '#ffffff'];
+  function firework(x, y) {
+    const z = rand(140, 260), color = FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)];
+    for (let i = 0; i < 30; i++) {
+      const a = rand(0, Math.PI * 2), up = rand(-1, 1), s = rand(260, 380), life = rand(0.9, 1.3);
+      const h = Math.sqrt(1 - up * up);
+      particles.push({ type: 'spark', x, y, z, vx: Math.cos(a) * h * s, vy: Math.sin(a) * h * s, vz: up * s, life, max: life, color, size: rand(2.5, 4), fw: true });
+    }
+    ring(x, y, z, color, 30);
+    Sfx.play('pop');
+  }
+  function updateFireworks(dt) {
+    for (const f of game.fireworks) if ((f.t -= dt) <= 0) firework(f.x, f.y);
+    game.fireworks = game.fireworks.filter(f => f.t > 0);
   }
 
   // 낙법: 떨어지던 플레이어를 기둥 위 공중으로 되돌린다
@@ -1330,6 +1498,7 @@
     updateItems(dt);
     updateShots(dt);
     updateEnemyShots(dt);
+    updateFireworks(dt);
     updateParticles(dt);
     game.chainT -= dt;
     if (game.chainT <= 0) game.chainN = 0;
@@ -1422,6 +1591,17 @@
       ctx.beginPath(); ctx.ellipse(sx(e.x), sy(e.y, 0), e.r * S * 0.95 * s, e.r * S * 0.95 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
     }
     for (const e of enemies) {
+      if (e.elite && !e.falling && e.z > -1) {
+        ctx.strokeStyle = `rgba(255,216,74,${0.6 + 0.3 * Math.sin(time * 6)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(sx(e.x), sy(e.y, 0), e.r * S * 1.15, e.r * S * 1.15 * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (e.jump && e.state === 'attack' && !e.falling) {
+        const rr = e.def.attack.radius * S;
+        ctx.fillStyle = 'rgba(255,60,60,0.18)'; ctx.strokeStyle = `rgba(255,60,60,${0.5 + 0.4 * Math.sin(time * 25)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(sx(e.jump.x1), sy(e.jump.y1, 0), rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
+    for (const e of enemies) {
       if (e.falling || e.state !== 'windup' || e.def.behavior !== 'charger') continue;
       const len = e.def.attack.range * 1.3;
       ctx.save();
@@ -1432,6 +1612,10 @@
       ctx.lineTo(sx(e.x + Math.cos(e.face) * len), sy(e.y + Math.sin(e.face) * len, 0));
       ctx.stroke();
       ctx.restore();
+    }
+    if (player.starT > 0 && !player.falling) {
+      ctx.strokeStyle = `hsl(${(time * 360) % 360},100%,65%)`; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(sx(player.x), sy(player.y, 0), player.r * S * 1.3, player.r * S * 1.3 * SQ, 0, 0, Math.PI * 2); ctx.stroke();
     }
     const a = player.atk;
     if (a && !a.ranged) {
@@ -1492,6 +1676,19 @@
       ctx.fillStyle = `rgba(0,0,0,${0.3 * s})`;
       ctx.beginPath(); ctx.ellipse(px, gy, r * 1.2 * s, r * 1.2 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
       const py = sy(it.y, it.z) - r * (1 + (it.z > 0 ? 0 : 0.15 * Math.sin(it.t * 5)));
+      if (it.kind !== 'meat') {
+        // 곧 사라질 아이템은 깜빡인다
+        if (it.life < 3 && Math.floor(it.life * 6) % 2 === 0) continue;
+        ctx.save();
+        const g = ctx.createRadialGradient(px, py, r * 0.2, px, py, r * 1.3);
+        g.addColorStop(0, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 1.3, 0, Math.PI * 2); ctx.fill();
+        ctx.font = `${Math.round(r * 1.7)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.def.icon, px, py);
+        ctx.restore();
+        continue;
+      }
       ctx.save();
       ctx.translate(px, py);
       ctx.rotate(-0.5);
@@ -1800,7 +1997,7 @@
     const lw = Math.max(1.5, r * 0.09);
     if (e.state === 'windup') ctx.translate(rand(-1, 1) * r * 0.1, 0);
     const blink = e.state === 'windup' && Math.floor(e.st * 12) % 2 === 0;
-    const base = blink ? '#ff6b6b' : d.color;
+    const base = e.frozen > 0 ? '#a8dcff' : blink ? '#ff6b6b' : d.color;
 
     if (d.horn) {
       ctx.fillStyle = tint(e, '#f5efe0'); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = lw;
@@ -1818,7 +2015,13 @@
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }
+    if (d.ghost) ctx.globalAlpha = 0.72 + 0.15 * Math.sin(time * 4 + e.x);
     circle(0, 0, r, tint(e, base), shade(d.color, -0.5), lw);
+    if (d.ghost) {
+      // 아래쪽 물결 자락
+      ctx.fillStyle = tint(e, base);
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * r * 0.36, r * 0.85, r * 0.22, 0, Math.PI * 2); ctx.fill(); }
+    }
     if (d.crown) {
       ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = '#7a5a00'; ctx.lineWidth = lw;
       ctx.beginPath();
@@ -1859,6 +2062,22 @@
         }
       }
     }
+
+    if (d.guard && e.state !== 'stun') {
+      // 앞을 막는 방패 (뒤를 볼 때는 몸에 가려진다)
+      const back = fyv < -0.3;
+      if (!back) {
+        ctx.save();
+        ctx.translate(fxv * r * 0.75, r * 0.15 + fyv * r * 0.2);
+        ctx.scale(Math.max(0.35, Math.abs(fyv) + 0.25 * (1 - Math.abs(fyv))), 1);
+        ctx.fillStyle = '#c0c8d8'; ctx.strokeStyle = '#3a4050'; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.6); ctx.lineTo(r * 0.55, -r * 0.6); ctx.lineTo(r * 0.5, r * 0.2); ctx.lineTo(0, r * 0.65); ctx.lineTo(-r * 0.5, r * 0.2); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        circle(0, -r * 0.05, r * 0.14, '#ffd84a', '#3a4050', lw * 0.7);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
 
     if (e.state === 'stun' && e.hitstun > 0.25) {
       ctx.fillStyle = '#ffe066';
@@ -1949,6 +2168,40 @@
     ctx.globalAlpha = 1;
   }
 
+  // 주기적으로 발동하는 능력의 쿨타임: frac = 충전된 비율, left = 남은 초, active = 발동 중(거대화), ready = 대기 중(방패막)
+  function cooldownOf(id) {
+    const p = player;
+    if (id === 'roar') return { frac: p.roarT / ab('roar'), left: ab('roar') - p.roarT };
+    if (id === 'regen') return { frac: (p.regenT || 0) / 5, left: 5 - (p.regenT || 0) };
+    if (id === 'shield') return p.shieldT >= ab('shield') ? { frac: 1, left: 0, ready: true } : { frac: p.shieldT / ab('shield'), left: ab('shield') - p.shieldT };
+    if (id === 'giant') {
+      if (p.giant > 0) return { frac: 1, left: p.giant, active: true };
+      return { frac: p.giantT / ABIL.giant.every, left: ABIL.giant.every - p.giantT };
+    }
+    return null;
+  }
+  function drawCooldown(cd, cx, cy) {
+    const rr = 15;
+    if (!cd.active && !cd.ready && cd.frac < 1) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, rr, -Math.PI / 2 + clamp(cd.frac, 0, 1) * Math.PI * 2, Math.PI * 1.5);
+      ctx.closePath(); ctx.fill();
+    }
+    if (cd.active || cd.ready) {
+      ctx.strokeStyle = cd.active ? '#ffd84a' : '#b8a0ff'; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(time * 8);
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (cd.ready) return;
+    const t = cd.left >= 10 ? String(Math.ceil(cd.left)) : Math.max(0, cd.left).toFixed(1);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 11px system-ui, sans-serif';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeText(t, cx, cy + 1);
+    ctx.fillStyle = cd.active ? '#ffd84a' : '#ffffff'; ctx.fillText(t, cx, cy + 1);
+  }
+
   function drawHUD() {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (fx.red > 0) {
@@ -1978,13 +2231,16 @@
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
 
-    // 보유 능력 아이콘
+    // 보유 능력 아이콘. 몇 초마다 발동하는 능력은 남은 쿨타임을 시계 모양으로 덮고 초를 적는다
     let ix = 16, iy = 62;
     const maxX = Math.max(140, W * 0.32);
     for (const [id, l] of Object.entries(player.abil)) {
       ctx.font = '20px system-ui, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(ABIL[id].icon, ix, iy);
+      const cd = cooldownOf(id);
+      if (cd) drawCooldown(cd, ix + 11, iy + 11);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       const tag = id === 'second_wind' ? `x${player.saves}` : (l > 1 ? String(l) : '');
       if (tag) {
         ctx.font = '800 11px system-ui, sans-serif';
@@ -1994,14 +2250,27 @@
       ix += 34;
       if (ix > maxX) { ix = 16; iy += 28; }
     }
+    // 아이템 지속 효과 (남은 초)
+    if (ix > 16) { ix = 16; iy += 32; }
+    for (const [k, id] of [['starT', 'star'], ['hasteT', 'drink'], ['powerT', 'protein']]) {
+      if (!(player[k] > 0)) continue;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = '20px system-ui, sans-serif'; ctx.fillStyle = '#ffffff';
+      ctx.fillText(ITEM[id].icon, ix, iy);
+      drawCooldown({ frac: 1, left: player[k], active: true }, ix + 11, iy + 11);
+      ix += 34;
+    }
 
     if (game.banner) {
       const b = game.banner, age = b.max - b.t;
       const a = clamp(Math.min(age * 4, b.t * 2), 0, 1);
       const pop = age < 0.15 ? 1 + (0.15 - age) * 4 : 1;
       ctx.globalAlpha = a;
-      ctx.font = `900 ${Math.min(64, W * 0.12) * pop}px system-ui, sans-serif`;
-      ctx.textBaseline = 'middle';
+      const bs = Math.min(64, W * 0.12);
+      ctx.font = `900 ${bs}px system-ui, sans-serif`;
+      const fit = Math.min(1, W * 0.92 / ctx.measureText(b.text).width);
+      ctx.font = `900 ${bs * fit * pop}px system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 8; ctx.strokeStyle = '#000'; ctx.strokeText(b.text, W / 2, H * 0.24);
       ctx.fillStyle = b.color || '#ffd84a'; ctx.fillText(b.text, W / 2, H * 0.24);
       if (b.sub) {
@@ -2084,5 +2353,5 @@
   requestAnimationFrame(frame);
 
   // 디버그용 (콘솔에서 상태 확인)
-  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, get shots() { return shots; }, startGame, openPick, choose };
+  window.__bigguy = { game, get player() { return player; }, get enemies() { return enemies; }, get items() { return items; }, dropMeat, dropItem, get shots() { return shots; }, startGame, startWave, spawnEnemy, openPick, choose };
 })();
