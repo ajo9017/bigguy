@@ -1230,8 +1230,11 @@
     e.pct += dmg;
     const power = kb * (1 + e.pct / 80) / e.mass;
     e.vx += nx * power; e.vy += ny * power;
-    e.state = 'stun'; e.st = 0;
-    e.hitstun = Math.min(1.2, 0.15 + power / 1500) * ab('stun', 1);
+    // 보스는 공격 동작(준비/공격/후딜) 중에 맞아도 경직되지 않아 공격이 끊기지 않는다(넉백과 피해는 그대로)
+    if (!(e.def.boss && ['windup', 'slamwind', 'attack', 'recover'].includes(e.state))) {
+      e.state = 'stun'; e.st = 0;
+      e.hitstun = Math.min(1.2, 0.15 + power / 1500) * ab('stun', 1);
+    }
     e.flash = 0.12; e.sqx = 1.35; e.sqy = 0.7; e.tilt = (nx >= 0 ? 1 : -1) * 0.45;
     // 타격감: 퍼센트가 높을수록 멈춤과 흔들림이 커지고, 모든 타격에 충격 링과 불꽃이 번진다
     const big = Math.min(1, power / 900);
