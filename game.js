@@ -1159,7 +1159,7 @@
       c.hitT -= dt;
       if (c.hitT <= 0) {
         c.hitT = 0.55;
-        pushAround(c, 85, 3, 380, false);
+        pushAround(c, 85, 3, 228, false);
         burst(c.x, c.y, 20, '#9fe6ff', 5, 200);
       }
       if (c.t <= 0) { ring(c.x, c.y, 20, '#9fe6ff', 50); p.clone = null; }
