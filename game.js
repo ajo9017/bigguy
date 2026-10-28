@@ -1769,7 +1769,7 @@
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
-    if (e.def.boss) bossDefeated(e);
+    if (e.def.boss && !player.falling && !player.dead && game.overT <= 0) bossDefeated(e); // 플레이어가 먼저 떨어졌으면 격파 연출을 하지 않는다
     // 폭죽 광대: 쓰러지면서 플레이어 쪽으로 부채꼴 투사체를 뿌린다
     const fn = e.def.fan;
     if (fn && !player.falling) {
