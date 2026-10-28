@@ -90,6 +90,28 @@ window.GAME_DATA = {
       zone: { every: 4.5, radius: 85, windup: 1.1, damage: 14, force: 900, count: 1 },
     },
 
+    // 30웨이브 이후(무한 웨이브)에 섞여 나오는 공격 패턴이 다른 적
+    // jumper = 멀리서 점프해 플레이어 자리에 내려찍기(attack.radius 범위), guard = 앞에서 맞으면 넉백·피해 x guard(옆·뒤나 연타로 뚫는다)
+    // blink = every초마다 플레이어 등 뒤로 순간이동해서 바로 공격, ghost = 반투명하게 그린다
+    frog: {
+      name: '점프 개구리', color: '#3fbf6a', radius: 24, mass: 1.6, speed: 70, behavior: 'jumper', score: 500,
+      attack: { range: 300, windup: 0.6, jumpTime: 0.7, recover: 0.9, radius: 75, damage: 14, force: 950 },
+    },
+    guard: {
+      name: '방패병', color: '#6b7fa8', radius: 26, mass: 2.4, speed: 70, behavior: 'walker', score: 550, guard: 0.25,
+      attack: { range: 56, windup: 0.6, recover: 0.8, damage: 16, force: 900 },
+    },
+    ghost: {
+      name: '유령', color: '#c9d6ff', radius: 20, mass: 1.0, speed: 90, behavior: 'walker', score: 500, ghost: true,
+      blink: { every: 4.5, dist: 75 },
+      attack: { range: 50, windup: 0.45, recover: 0.7, damage: 14, force: 900 },
+    },
+    stomper: {
+      name: '쿵쿵이', color: '#a85f3a', radius: 30, mass: 3.2, speed: 60, behavior: 'walker', score: 550, teeth: true,
+      slam: { every: 3.5, radius: 120, windup: 0.75, damage: 13, force: 900 },
+      attack: { range: 60, windup: 0.8, recover: 1.0, damage: 16, force: 900 },
+    },
+
     // 보스: 5웨이브마다 하나씩, 매번 다른 보스가 나온다 (반복 없음). boss: true
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
@@ -211,7 +233,7 @@ window.GAME_DATA = {
       look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },
   ],
 
-  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브가 endlessScale 배율로 계속 늘어난다.
+  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후는 endless 설정을 따른다.
   waves: [
     { grunt: 3 },                                              // 1
     { grunt: 5 },                                              // 2
@@ -247,7 +269,13 @@ window.GAME_DATA = {
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
-  endlessScale: 1.25,
+  // 마지막 웨이브(30) 이후: 마릿수는 count로 고정하고 pool(가중치)에서 무작위로 섞는다.
+  // 대신 웨이브마다 적이 단단해지고(몸무게 x(1 + tough * n), n = 30 이후 몇 번째 웨이브) 정예가 섞인다.
+  // 정예: 확률 elite + eliteStep * n (최대 eliteMax), 몸무게 x eliteMass, 크기 x eliteScale, 금색 테두리
+  endless: {
+    count: 16, tough: 0.08, elite: 0.1, eliteStep: 0.02, eliteMax: 0.45, eliteMass: 1.7, eliteScale: 1.18,
+    pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1 },
+  },
   spawnInterval: 0.9,
   maxAlive: 7,
 };

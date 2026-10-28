@@ -673,13 +673,15 @@
 
   function waveSpec(i) {
     if (i < D.waves.length) return D.waves[i];
-    // 보스는 반복하지 않는다: 마지막 웨이브 이후에는 보스를 뺀 마지막 일반 웨이브를 늘려서 쓴다
-    let li = D.waves.length - 1;
-    while (li > 0 && Object.keys(D.waves[li]).some(k => D.enemies[k] && D.enemies[k].boss)) li--;
-    const last = D.waves[li];
-    const mul = Math.pow(D.endlessScale, i - D.waves.length + 1);
+    // 무한 웨이브: 마릿수는 고정, 종류는 가중치대로 무작위 (보스는 반복하지 않는다)
+    const E = D.endless, kinds = Object.keys(E.pool).filter(k => D.enemies[k]);
+    const total = kinds.reduce((t, k) => t + E.pool[k], 0);
     const spec = {};
-    for (const k in last) if (!(D.enemies[k] && D.enemies[k].boss)) spec[k] = Math.round(last[k] * mul);
+    for (let n = 0; n < E.count; n++) {
+      let r = Math.random() * total, k = kinds[0];
+      for (const c of kinds) { r -= E.pool[c]; if (r <= 0) { k = c; break; } }
+      spec[k] = (spec[k] || 0) + 1;
+    }
     return spec;
   }
 
@@ -698,8 +700,13 @@
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
+    if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * endlessN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
+
+  // 30웨이브 이후 몇 번째 웨이브인지 (그 전은 0)
+  const endlessN = () => Math.max(0, game.wave - D.waves.length + 1);
+  const eliteChance = () => Math.min(D.endless.eliteMax, D.endless.elite + D.endless.eliteStep * endlessN());
 
   function spawnEnemy(type) {
     const def = D.enemies[type];
@@ -716,6 +723,12 @@
     e.type = type; e.skillT = 0; e.slamT = def.slam ? def.slam.every : 0; e.sumT = def.summon ? def.summon.every : 0; e.zoneT = def.zone ? def.zone.every : 0;
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = -80; e.face = bestA + Math.PI;
+    if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
+    const n = endlessN();
+    if (n && !def.boss) {
+      e.mass *= 1 + D.endless.tough * n;
+      if (Math.random() < eliteChance()) { e.elite = true; e.mass *= D.endless.eliteMass; e.r *= D.endless.eliteScale; }
+    }
     enemies.push(e);
   }
 
@@ -1040,6 +1053,12 @@
   }
 
   function hitEnemy(e, nx, ny, dmg, kb, heavy) {
+    // 방패병: 정면에서 맞으면 막는다 (밀리는 방향이 바라보는 방향의 반대 = 앞에서 맞음). 경직 중에는 못 막는다
+    if (e.def.guard && e.state !== 'stun' && nx * Math.cos(e.face) + ny * Math.sin(e.face) < -0.4) {
+      dmg *= e.def.guard; kb *= e.def.guard;
+      text(e.x, e.y, e.r * 3, '막음!', '#a8c8ff', 18);
+      ring(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, e.r, '#a8c8ff', e.r * 0.6);
+    }
     e.pct += dmg;
     const power = kb * (1 + e.pct / 80) / e.mass;
     e.vx += nx * power; e.vy += ny * power;
@@ -1143,6 +1162,30 @@
           text(e.x, e.y, e.r * 3, '장판!', '#ff7fe0', 22);
           Sfx.play('windup');
         }
+        const bl = e.def.blink;
+        if (bl && (e.blinkT -= dt) <= 0 && d > 110) {
+          // 유령: 플레이어 등 뒤로 순간이동해서 바로 공격 준비
+          e.blinkT = bl.every;
+          burst(e.x, e.y, e.r, '#c9d6ff', 10, 240);
+          let tx = p.x - Math.cos(p.face) * bl.dist, ty = p.y - Math.sin(p.face) * bl.dist;
+          const tl = Math.hypot(tx, ty);
+          if (tl > R * 0.85) { tx *= R * 0.85 / tl; ty *= R * 0.85 / tl; }
+          e.x = tx; e.y = ty; e.vx = e.vy = 0;
+          e.face = Math.atan2(p.y - e.y, p.x - e.x);
+          burst(e.x, e.y, e.r, '#c9d6ff', 10, 240);
+          text(e.x, e.y, e.r * 3, '스윽', '#c9d6ff', 18);
+          e.state = 'windup'; e.st = 0; Sfx.play('windup');
+          break;
+        }
+        if (e.def.behavior === 'jumper') {
+          if (d <= A.range && e.st > 0.4) { e.state = 'windup'; e.st = 0; Sfx.play('windup'); }
+          else {
+            e.x += Math.cos(e.face) * e.def.speed * dt;
+            e.y += Math.sin(e.face) * e.def.speed * dt;
+            e.walk += dt * 10;
+          }
+          break;
+        }
         if (e.def.behavior === 'shooter') {
           // 사거리 안에서 거리를 유지하며 쏜다
           if (d <= A.range && e.st > 0.4) { e.state = 'windup'; e.st = 0; Sfx.play('windup'); }
@@ -1181,10 +1224,32 @@
       case 'windup':
         // 돌진병은 조준을 끝까지 따라오고, 근접형은 전반부까지만 따라온다
         if (charger || e.st < windup * 0.5) e.face = Math.atan2(dy, dx);
-        if (e.st >= windup) { e.state = 'attack'; e.st = 0; e.didHit = false; }
+        if (e.st >= windup) {
+          e.state = 'attack'; e.st = 0; e.didHit = false;
+          if (e.def.behavior === 'jumper') {
+            // 지금 플레이어가 있는 자리로 뛴다 (기둥 안쪽으로 제한)
+            let tx = p.x, ty = p.y;
+            const tl = Math.hypot(tx, ty);
+            if (tl > R * 0.9) { tx *= R * 0.9 / tl; ty *= R * 0.9 / tl; }
+            e.jump = { x0: e.x, y0: e.y, x1: tx, y1: ty };
+          }
+        }
         break;
       case 'attack':
-        if (charger) {
+        if (e.def.behavior === 'jumper') {
+          const J = e.jump, u = clamp(e.st / A.jumpTime, 0, 1);
+          e.x = J.x0 + (J.x1 - J.x0) * u; e.y = J.y0 + (J.y1 - J.y0) * u;
+          e.z = Math.sin(Math.PI * u) * 170; e.vz = 0; e.vx = e.vy = 0;
+          if (u >= 1) {
+            e.z = 0; e.state = 'recover'; e.st = 0; e.jump = null;
+            fx.shake = Math.max(fx.shake, 12);
+            ring(e.x, e.y, 2, '#ffffff', A.radius * 0.35);
+            burst(e.x, e.y, 2, '#d8d2c0', 14, 320);
+            Sfx.play('bighit');
+            const jx = p.x - e.x, jy = p.y - e.y, jd = Math.hypot(jx, jy);
+            if (!playerGone && p.z <= 20 && jd <= A.radius + p.r) hitPlayer(e, jx / (jd || 1), jy / (jd || 1));
+          }
+        } else if (charger) {
           e.x += Math.cos(e.face) * A.dashSpeed * dt;
           e.y += Math.sin(e.face) * A.dashSpeed * dt;
           e.walk += dt * 25;
@@ -1455,6 +1520,17 @@
       const s = 1 / (1 + Math.max(0, e.z) / 300);
       ctx.fillStyle = `rgba(0,0,0,${0.28 * s})`;
       ctx.beginPath(); ctx.ellipse(sx(e.x), sy(e.y, 0), e.r * S * 0.95 * s, e.r * S * 0.95 * SQ * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const e of enemies) {
+      if (e.elite && !e.falling && e.z > -1) {
+        ctx.strokeStyle = `rgba(255,216,74,${0.6 + 0.3 * Math.sin(time * 6)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(sx(e.x), sy(e.y, 0), e.r * S * 1.15, e.r * S * 1.15 * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (e.jump && e.state === 'attack' && !e.falling) {
+        const rr = e.def.attack.radius * S;
+        ctx.fillStyle = 'rgba(255,60,60,0.18)'; ctx.strokeStyle = `rgba(255,60,60,${0.5 + 0.4 * Math.sin(time * 25)})`; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(sx(e.jump.x1), sy(e.jump.y1, 0), rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
     }
     for (const e of enemies) {
       if (e.falling || e.state !== 'windup' || e.def.behavior !== 'charger') continue;
@@ -1853,7 +1929,13 @@
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }
+    if (d.ghost) ctx.globalAlpha = 0.72 + 0.15 * Math.sin(time * 4 + e.x);
     circle(0, 0, r, tint(e, base), shade(d.color, -0.5), lw);
+    if (d.ghost) {
+      // 아래쪽 물결 자락
+      ctx.fillStyle = tint(e, base);
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * r * 0.36, r * 0.85, r * 0.22, 0, Math.PI * 2); ctx.fill(); }
+    }
     if (d.crown) {
       ctx.fillStyle = '#ffd84a'; ctx.strokeStyle = '#7a5a00'; ctx.lineWidth = lw;
       ctx.beginPath();
@@ -1894,6 +1976,22 @@
         }
       }
     }
+
+    if (d.guard && e.state !== 'stun') {
+      // 앞을 막는 방패 (뒤를 볼 때는 몸에 가려진다)
+      const back = fyv < -0.3;
+      if (!back) {
+        ctx.save();
+        ctx.translate(fxv * r * 0.75, r * 0.15 + fyv * r * 0.2);
+        ctx.scale(Math.max(0.35, Math.abs(fyv) + 0.25 * (1 - Math.abs(fyv))), 1);
+        ctx.fillStyle = '#c0c8d8'; ctx.strokeStyle = '#3a4050'; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.6); ctx.lineTo(r * 0.55, -r * 0.6); ctx.lineTo(r * 0.5, r * 0.2); ctx.lineTo(0, r * 0.65); ctx.lineTo(-r * 0.5, r * 0.2); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        circle(0, -r * 0.05, r * 0.14, '#ffd84a', '#3a4050', lw * 0.7);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
 
     if (e.state === 'stun' && e.hitstun > 0.25) {
       ctx.fillStyle = '#ffe066';
