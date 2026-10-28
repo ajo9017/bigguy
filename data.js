@@ -151,7 +151,7 @@ window.GAME_DATA = {
     },
   },
 
-  // 레벨업 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
+  // 스테이지 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
   // lv[n]은 레벨 n+1일 때의 값이고, desc는 그 값을 받아 설명을 만든다. 효과 구현은 game.js에서 id로 찾는다.
   // lv 배열 다음 레벨부터는 마지막 한 단계 변화량 x abilityGrow(능력별 grow)씩 계속 변하고, cap에서 멈춘다(넘으면 안 되는 한계값)
   // melee: true = 근접 공격에서만 효과가 있는 능력(원거리 캐릭터 선택지에서 제외)
@@ -167,7 +167,7 @@ window.GAME_DATA = {
     { id: 'rapid',       icon: '⚡', name: '연타',        cap: 2.5, lv: [1.15, 1.3, 1.45], desc: v => `공격 속도 x${v}` },
     { id: 'tough',       icon: '🛡️', name: '맷집',        cap: 0.3, lv: [0.85, 0.72, 0.6], desc: v => `받는 피해% x${v}` },
     { id: 'grip',        icon: '🦶', name: '발끝 버티기', cap: 0.25, lv: [0.8, 0.65, 0.5],  desc: v => `가장자리 근처에서 받는 넉백 x${v}` },
-    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `레벨업 때마다 피해% -${v} (선택 즉시도 회복)` },
+    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `스테이지 클리어 때마다 피해% -${v} (선택 즉시도 회복)` },
     { id: 'cyclone', melee: true,     icon: '🌪️', name: '회오리 펀치', cap: 2, lv: [1, 1.15, 1.3],    desc: v => v > 1 ? `3타째가 360° 회전 공격 (범위 x${v})` : '3타째가 360° 회전 공격' },
     { id: 'shockwave', melee: true,   icon: '💥', name: '충격파',      cap: 320, lv: [120, 150, 185],   desc: v => `3타째 끝에 반경 ${v} 충격파` },
     { id: 'counter',     icon: '🔥', name: '분노 반격',   lv: [500, 700, 900],   desc: v => `맞으면 주변 적을 날려버림 (힘 ${v})` },
@@ -285,15 +285,15 @@ window.GAME_DATA = {
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
   // 필드 아이템: 매 웨이브 chance 확률로 delay[0]~delay[1]초 사이에 하나가 떨어진다(weight 가중치). life초 뒤 사라진다.
-  // 주우면 효과가 바로 나거나(bomb, ice, gem) time초 동안 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
+  // 주우면 효과가 바로 나거나(bomb, ice, gem) 스테이지가 끝날 때까지 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
   itemDrop: { chance: 0.75, delay: [4, 12], radius: 18 },
   items: [
     { id: 'bomb',    icon: '💣', name: '폭탄',         weight: 3, life: 15, range: 230, force: 950, desc: '주변 적을 모두 날려버림' },
-    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '6초 동안 무적' },
-    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '8초 동안 이동·공격 속도 x1.4' },
-    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '10초 동안 공격 넉백 x1.5' },
+    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '이번 스테이지 동안 무적' },
+    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '이번 스테이지 동안 이동·공격 속도 x1.4' },
+    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '이번 스테이지 동안 공격 넉백 x1.5' },
     { id: 'ice',     icon: '🧊', name: '얼음 결정',     weight: 2, life: 15, time: 3, desc: '3초 동안 모든 적이 얼어붙음 (보스는 절반)' },
-    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 웨이브)' },
+    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 스테이지)' },
   ],
 
   // 마지막 웨이브(30) 이후: 마릿수는 count로 고정하고 pool(가중치)에서 무작위로 섞는다.
@@ -305,8 +305,6 @@ window.GAME_DATA = {
     late: { from: 40, boost: 3 },
     pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1 },
   },
-  // 경험치: 적 처치 경험치 = score / div. 레벨업에 필요한 경험치 = base + step*n + quad*n^2 (n = 현재 레벨-1)
-  xp: { div: 50, base: 6, step: 2.5, quad: 0.06 },
   spawnInterval: 0.9,
   maxAlive: 7,
 };

@@ -128,7 +128,7 @@
 
   // ---------- 상태 ----------
   const game = {
-    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, xp: 0, filled: -1,
+    state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1,
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
@@ -236,7 +236,7 @@
     game.choices = pool.slice(0, 3);
     game.picking = true;
     releaseInput();
-    ui.pickTitle.textContent = `LEVEL UP! Lv ${game.wave + 2} · 능력을 하나 고르세요`;
+    ui.pickTitle.textContent = `STAGE ${game.wave + 1} CLEAR! · 능력을 하나 고르세요`;
     ui.cards.innerHTML = '';
     game.choices.forEach((a, i) => {
       const cur = lvl(a.id);
@@ -646,7 +646,7 @@
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, xp: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -711,11 +711,8 @@
     return spec;
   }
 
-  // 경험치 시스템: 적이 끊임없이 나오고, 처치 경험치가 차면 레벨업(능력 선택). game.wave는 현재 레벨-1(난이도 단계)이다
-  const xpNeed = lv => { const X = D.xp, n = lv - 1; return Math.round(X.base + X.step * n + X.quad * n * n); };
-  const xpOf = def => Math.max(1, Math.round(def.score / D.xp.div));
-
-  // 지금 레벨의 적 구성을 queue에 채운다. 보스는 레벨마다 한 번만 맨 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
+  // 스테이지 시스템: 스테이지의 적을 모두 처치하면 클리어, 능력을 고르고 다음 스테이지로 간다. game.wave는 현재 스테이지-1이다
+  // 지금 스테이지의 적 구성을 queue에 채운다. 보스는 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
   function fillQueue() {
     const spec = waveSpec(game.wave);
     const isBoss = k => D.enemies[k] && D.enemies[k].boss;
@@ -730,7 +727,8 @@
 
   function startWave(i) {
     game.wave = i;
-    game.xp = 0;
+    // 아이템 효과는 스테이지가 끝날 때까지만 간다
+    for (const k of ['starT', 'hasteT', 'powerT']) player[k] = 0;
     fillQueue();
     const boss = game.queue.filter(k => D.enemies[k] && D.enemies[k].boss);
     game.spawnT = 1.2;
@@ -738,14 +736,14 @@
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
-    game.banner = boss.length ? { text: `BOSS LEVEL ${i + 1}`, t: 2.4, max: 2.4 } : { text: `LEVEL ${i + 1}`, t: 2, max: 2 };
+    game.banner = boss.length ? { text: `BOSS STAGE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `STAGE ${i + 1}`, t: 2, max: 2 };
     if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * hardN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
 
   // 30웨이브 이후 몇 번째 웨이브인지 (그 전은 0)
   const endlessN = () => Math.max(0, game.wave - D.waves.length + 1);
-  // 난이도 단계: 레벨 late.from 이후로는 n이 boost배 빨리 오른다
+  // 난이도 단계: 스테이지 late.from 이후로는 n이 boost배 빨리 오른다
   const hardN = () => {
     const n = endlessN(), L = D.endless.late;
     return L ? n + Math.max(0, game.wave + 1 - L.from) * (L.boost - 1) : n;
@@ -783,18 +781,25 @@
     if (player.falling) return;
     if (game.meatT > 0 && (game.meatT -= dt) <= 0) dropMeat();
     if (game.itemT > 0 && (game.itemT -= dt) <= 0) dropItem();
-    // 경험치가 차면 레벨업: 능력 선택 (선택 전까지 게임이 멈춘다)
-    if (game.xp >= xpNeed(game.wave + 1)) {
-      const heal = ab('recovery', 0);
-      if (heal && player.pct > 0) {
-        player.pct = Math.max(0, player.pct - heal);
-        text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
+    const alive = enemies.filter(e => !e.falling).length;
+    // 적을 모두 내보내고 모두 쓰러뜨리면 스테이지 클리어: 잠깐 뒤 능력 선택 (선택 전까지 게임이 멈춘다)
+    if (!game.queue.length && !alive) {
+      if (game.clearT < 0) {
+        game.clearT = 1.4;
+        if (!game.banner || !game.banner.boss) game.banner = { text: `STAGE ${game.wave + 1} CLEAR!`, t: 1.4, max: 1.4 };
+        Sfx.play('fanfare');
       }
-      openPick();
+      if ((game.clearT -= dt) <= 0) {
+        game.clearT = -1;
+        const heal = ab('recovery', 0);
+        if (heal && player.pct > 0) {
+          player.pct = Math.max(0, player.pct - heal);
+          text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
+        }
+        openPick();
+      }
       return;
     }
-    const alive = enemies.filter(e => !e.falling).length;
-    if (!game.queue.length) fillQueue();
     game.spawnT -= dt;
     const next = game.queue[game.queue.length - 1];
     if (game.spawnT <= 0 && alive < D.maxAlive) {
@@ -845,9 +850,9 @@
         fx.shake = Math.max(fx.shake, 24); fx.zoom = 0.06;
         Sfx.play('bighit'); Sfx.play('fall');
         break;
-      case 'star': p.starT = def.time; p.inv = Math.max(p.inv, def.time); break;
-      case 'drink': p.hasteT = def.time; break;
-      case 'protein': p.powerT = def.time; break;
+      case 'star': p.starT = Infinity; break;
+      case 'drink': p.hasteT = Infinity; break;
+      case 'protein': p.powerT = Infinity; break;
       case 'ice':
         for (const e of enemies) {
           if (!activeEnemy(e)) continue;
@@ -1470,7 +1475,6 @@
     game.chainN++; game.chainT = ab('chain', 1.5);
     const pts = Math.round(e.def.score * game.chainN * ab('bounty', 1));
     game.score += pts;
-    game.xp += xpOf(e.def);
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
     if (e.def.boss) bossDefeated(e);
     const adr = ab('adrenaline', 0);
@@ -2319,6 +2323,7 @@
       ctx.globalAlpha = 1;
     }
     if (cd.ready) return;
+    if (!isFinite(cd.left)) return;
     const t = cd.left >= 10 ? String(Math.ceil(cd.left)) : Math.max(0, cd.left).toFixed(1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = '900 11px system-ui, sans-serif';
@@ -2350,11 +2355,11 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 18px system-ui, sans-serif';
-    ctx.fillText(`LV ${game.wave + 1}`, 16, 14);
-    // 경험치 막대: 화면 맨 위
-    const need = xpNeed(game.wave + 1), xr = Math.min(1, game.xp / need);
-    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(0, 0, W, 6);
-    ctx.fillStyle = '#7dd6ff'; ctx.fillRect(0, 0, W * xr, 6);
+    ctx.fillText(`STAGE ${game.wave + 1}`, 16, 14);
+    const left = game.queue.length + enemies.filter(e => !e.falling).length;
+    ctx.textAlign = 'right';
+    ctx.fillText(`남은 적 ${left}`, W - 16, 14);
+    ctx.textAlign = 'left';
     ctx.font = '600 15px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
@@ -2387,7 +2392,7 @@
       ix += 34;
       if (ix > maxX) { ix = 16; iy += 28; }
     }
-    // 아이템 지속 효과 (남은 초)
+    // 아이템 지속 효과 (스테이지가 끝날 때까지)
     if (ix > 16) { ix = 16; iy += 32; }
     for (const [k, id] of [['starT', 'star'], ['hasteT', 'drink'], ['powerT', 'protein']]) {
       if (!(player[k] > 0)) continue;
