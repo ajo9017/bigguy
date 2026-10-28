@@ -231,7 +231,7 @@
   function openPick() {
     // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee)));
+    const pool = shuffle(D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id)));
     if (!pool.length) { startWave(game.wave + 1); return; }
     game.choices = pool.slice(0, 3);
     game.picking = true;
@@ -242,7 +242,7 @@
       const cur = lvl(a.id);
       const b = document.createElement('button');
       b.className = 'card';
-      b.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.name}</div>` +
+      b.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.only ? '⭐ ' : ''}${a.name}</div>` +
         `<div class="clv">${cur ? `Lv ${cur} → ${cur + 1}` : 'NEW'}</div><div class="cdesc">${a.desc(abVal(a, cur + 1))}</div></div>` +
         (isTouch ? '' : `<div class="ckey">${i + 1}</div>`);
       b.addEventListener('click', () => choose(i));
@@ -968,18 +968,33 @@
   function startAttack(p) {
     const a = p.attackDef;
     p.combo = (p.comboT > 0 ? p.combo : 0) + 1;
-    const cycle = a.ranged ? (a.ranged.every || 5) : 3;
+    const cycle = a.ranged ? Math.max(3, (a.ranged.every || 5) - ab('m_flow', 0) - ab('so_flow', 0) - ab('ar_flow', 0)) : 3;
     if (p.combo > cycle) p.combo = 1;
     p.comboT = a.comboWindow + a.duration;
     const finisher = p.combo === cycle;
     const spin = finisher && !a.ranged && lvl('cyclone') > 0;
     const ranged = finisher && !!a.ranged;
-    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1)) * (finisher && a.finRange || 1);
-    p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0)) };
+    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1)) * (finisher && a.finRange || 1) * (finisher ? ab('g_sweep', 1) : 1);
+    p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0) + (finisher ? ab('w_lariat', 0) : 0)),
+      pose: p.idleT >= 1.5 };
+    p.idleT = 0;
     const tgt = nearestEnemy(p, range + 70);
     if (tgt) p.face = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    // 캐릭터 전용: 3타째를 시작할 때 나가는 효과 (스모 기합, 요리사 플랑베, 닌자 수리검, 장군 투창)
+    if (finisher && !ranged) {
+      if (lvl('s_shout')) { pushAround(p, ab('s_shout'), 3, 520, true); fx.shake = Math.max(fx.shake, 8); }
+      if (lvl('c_flambe')) {
+        for (const e of enemies) {
+          if (!activeEnemy(e) || e.z < -1 || Math.hypot(e.x - p.x, e.y - p.y) > ab('c_flambe') + e.r) continue;
+          e.burnT = 3 + ab('c_spice', 0); e.burnDps = Math.max(e.burnDps || 0, 6 + ab('c_flame', 0));
+        }
+        ring(p.x, p.y, p.r, '#ff8a3c', ab('c_flambe') / 3.2);
+      }
+      if (lvl('n_shuriken')) throwShots(p, Math.round(ab('n_shuriken')), 0.9, 560, 4, 380, false, '#dfe6f0', 'bullet');
+      if (lvl('g_javelin')) throwShots(p, 1, 0, 900, 6, ab('g_javelin'), true, '#f4e3b0', 'arrow');
+    }
     if (!spin && a.lunge) {
-      const lg = a.lunge * (finisher && a.finLunge || 1) * ab('lunge', 1);
+      const lg = a.lunge * (finisher && a.finLunge || 1) * ab('lunge', 1) * (finisher ? ab('w_rope', 1) : 1);
       p.vx += Math.cos(p.face) * lg;
       p.vy += Math.sin(p.face) * lg;
     }
@@ -989,9 +1004,14 @@
   // 원거리 공격: 발사체를 쏜다. 5타째(ranged.every)는 캐릭터 전용기술(ranged.fin)로 바뀐다
   function fireShots(p, a) {
     const R0 = a.def.ranged, fin = a.finisher ? R0.fin : null;
-    const n = (fin && fin.count) || 1, spread = (fin && fin.spread) || 0;
+    // 전용 능력: 전용기술 발사체 수 증가(구슬 분열, 점사, 다발 사격), 넉백/폭발/관통 강화
+    const extra = a.finisher ? Math.round(ab('m_split', 0) + ab('so_burst', 0) + ab('ar_multi', 0)) : 0;
+    const n = ((fin && fin.count) || 1) + extra, spread = Math.max((fin && fin.spread) || 0, extra ? 0.22 * (n - 1) : 0);
     const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-    let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul : 1) / (n > 1 ? 1.4 : 1);
+    let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul * ab('so_snipe', 1) * ab('ar_power', 1) : 1) / (n > 1 ? 1.4 : 1);
+    const boom = a.finisher ? ((fin && fin.boom) || 0) + (fin && fin.boom ? ab('m_boom', 0) : 0) + ab('so_grenade', 0) : 0;
+    const pierce = a.finisher && (!!(fin && fin.pierce) || lvl('so_pierce') > 0 || lvl('ar_pierce') > 0);
+    if (a.finisher && lvl('m_ward')) p.inv = Math.max(p.inv, ab('m_ward'));
     kb *= (1 + p.pct / 100 * ab('berserk', 0)) * (p.powerT > 0 ? ITEM.protein.mul : 1);
     if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
     const sp = (fin && fin.speed) || R0.speed;
@@ -1000,11 +1020,22 @@
       shots.push({
         x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
         r: (fin && fin.radius) || R0.radius, color: (fin && fin.color) || R0.color, shape: R0.shape, left: a.range,
-        dmg, kb, heavy: a.finisher, pierce: !!(fin && fin.pierce), boom: (fin && fin.boom) || 0, hit: new Set(),
+        dmg, kb, heavy: a.finisher, pierce: pierce && !boom, boom, hit: new Set(), fin: a.finisher,
       });
     }
     burst(p.x + Math.cos(p.face) * p.r * 1.4, p.y + Math.sin(p.face) * p.r * 1.4, p.r * 0.6, R0.color, a.finisher ? 8 : 4, 200);
     Sfx.play(a.finisher ? 'whoosh' : 'swish');
+  }
+
+  // 전용 능력 발사체(수리검, 투창): 능력 효과라 다른 능력 배율은 붙지 않는다
+  function throwShots(p, n, spread, speed, r, kb, pierce, color, shape) {
+    for (let i = 0; i < n; i++) {
+      const ang = p.face + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
+      shots.push({
+        x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+        r, color, shape, left: R * 1.4, dmg: 4, kb, heavy: pierce, pierce, boom: 0, hit: new Set(), special: true,
+      });
+    }
   }
 
   function updateShots(dt) {
@@ -1022,9 +1053,14 @@
         const nx = Math.cos(s.ang), ny = Math.sin(s.ang);
         hitEnemy(e, nx, ny, s.dmg, kb, s.heavy);
         if (!s.special) elementHit(e);
+        if (s.fin && lvl('ar_fire')) { e.burnT = 3; e.burnDps = ab('ar_fire'); }
         const vamp = s.special ? 0 : ab('vampire', 0);
         if (vamp && player.pct > 0) player.pct = Math.max(0, player.pct - vamp);
         if (s.boom) {
+          if (s.fin && lvl('m_curse')) for (const o of enemies) {
+            if (o !== e && activeEnemy(o) && !o.invulnT && Math.hypot(o.x - s.x, o.y - s.y) < s.boom + o.r) o.pct += ab('m_curse');
+          }
+          if (s.fin && lvl('m_curse') && !e.invulnT) e.pct += ab('m_curse');
           ring(s.x, s.y, 6, s.color, s.boom / 3);
           burst(s.x, s.y, 8, s.color, 14, 420);
           pushAround({ x: s.x, y: s.y }, s.boom, 3, 520, true, s.hit);
@@ -1228,7 +1264,8 @@
     }
     p.grow += ((p.giant > 0 ? ABIL.giant.scale : 1) - p.grow) * Math.min(1, dt * 6);
     p.r = D.player.radius * p.grow;
-    p.mass = D.player.mass * (p.ch.mass || 1) * ab('heavy', 1) * p.grow;
+    p.mass = D.player.mass * (p.ch.mass || 1) * ab('heavy', 1) * p.grow * (1 + Math.min(p.pct, 200) / 100 * ab('s_dohyo', 0));
+    if (p.counterT > 0) p.counterT -= dt;
 
     // 대시: 쿨타임이 차면 버튼으로 바라보는(또는 움직이는) 방향으로 돌진한다
     const DS = D.player.dash;
@@ -1238,6 +1275,15 @@
       const mv = moveInput();
       if (Math.hypot(mv.x, mv.y) > 0.2) p.face = Math.atan2(mv.y, mv.x);
       p.dashT = DS.time; p.dashCd = dashFull; p.dashHit = new Set(); p.atk = null;
+      // 닌자 연막탄: 대시를 시작한 자리 주변 적이 잠깐 멈춘다
+      if (lvl('n_smoke')) {
+        for (const e of enemies) {
+          if (!activeEnemy(e) || e.z < -1 || Math.hypot(e.x - p.x, e.y - p.y) > 180 + e.r) continue;
+          const t = ab('n_smoke') * (e.def.boss ? 0.5 : 1);
+          if (t > (e.frozen || 0)) e.frozen = t;
+        }
+        burst(p.x, p.y, p.r * 1.5, '#9aa0b4', 14, 220); ring(p.x, p.y, p.r, '#9aa0b4', 60);
+      }
       p.inv = Math.max(p.inv, DS.time + ab('dash_ghost', 0) + DS.inv);
       ring(p.x, p.y, p.r, '#8fd3ff', p.r * 1.6);
       Sfx.play('roar');
@@ -1250,13 +1296,18 @@
       p.y += Math.sin(p.face) * sp * dt;
       p.walk += dt * 30;
       if (Math.random() < 0.8) burst(p.x, p.y, p.r * 0.6, '#bfe8ff', 1, 120);
-      const ram = ab('dash_ram', 0);
-      if (ram) for (const e of enemies) {
+      const ram = ab('dash_ram', 0), shade = ab('n_shadow', 0);
+      if (ram || shade) for (const e of enemies) {
         if (p.dashHit.has(e) || !activeEnemy(e)) continue;
         const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
         if (d > p.r + e.r + 10) continue;
         p.dashHit.add(e);
-        hitEnemy(e, dx / d, dy / d, 4, ram, true);
+        if (ram) hitEnemy(e, dx / d, dy / d, 4, ram, true);
+        if (shade && !e.invulnT) {
+          e.pct += shade; e.flash = 0.12;
+          ring(e.x, e.y, e.r, '#c9b8ff', e.r * 0.8);
+          text(e.x, e.y, e.r * 2.2, `${Math.round(e.pct)}%`, '#c9b8ff', 16);
+        }
       }
       if (p.dashT <= 0) {
         p.vx *= 0.3; p.vy *= 0.3;
@@ -1272,7 +1323,8 @@
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
       if (p.slowT > 0) p.slowT -= dt;
-      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? 0.35 : 1) * (p.slowT > 0 ? p.slowMul : 1);
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? Math.min(1, 0.35 * ab('n_swift', 1)) : 1) * (p.slowT > 0 ? p.slowMul : 1);
+      if (m < 0.2) p.idleT = (p.idleT || 0) + dt; else p.idleT = 0;
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
@@ -1282,7 +1334,11 @@
 
     const a = p.atk;
     if (!a) return;
-    a.t += dt * ab('rapid', 1) * haste;
+    let spd = ab('rapid', 1) * haste;
+    if (p.pct >= 50) spd *= ab('b_headband', 1);
+    if (p.counterT > 0) spd *= ab('x_counter', 1);
+    if (a.finisher) spd *= ab('g_drill', 1); else spd *= ab('x_jab', 1);
+    a.t += dt * spd;
     const def = a.def;
     if (a.ranged) {
       if (!a.fired && a.t >= def.active[0]) { a.fired = true; fireShots(p, a); }
@@ -1306,10 +1362,30 @@
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
         kb *= specialKb(p);
+        // 캐릭터 전용 능력의 넉백 배율
+        kb *= 1 + Math.min(game.chainN, 10) * ab('b_festival', 0) / 100;
+        if (a.finisher) kb *= ab('x_hook', 1);
+        if (a.pose) kb *= ab('w_pose', 1);
+        if (d > a.range * 0.65) kb *= ab('g_tip', 1);
+        if (e.pct < 30) kb *= ab('g_first', 1);
+        if (e.pct >= 100) kb *= ab('w_spirit', 1);
+        if (e.burnT > 0) kb *= ab('c_pan', 1);
+        if (lvl('n_backstab') && Math.cos(e.face) * fxv + Math.sin(e.face) * fyv > 0.3) { kb *= ab('n_backstab'); text(e.x, e.y - e.r, e.r * 3, '암습!', '#d6d6e8', 20); }
         hitEnemy(e, nx, ny, dmg, kb, a.finisher);
         // 캐릭터 개성: 잽은 오래 경직(stunMul), 강타는 불붙임(finBurn)
         if (!a.finisher && def.stunMul) e.hitstun *= def.stunMul;
-        if (a.finisher && def.finBurn && !e.burnT) { e.burnT = 3; e.burnDps = def.finBurn; }
+        if (a.finisher && def.finBurn && !(e.burnT > 0)) { e.burnT = 3 + ab('c_spice', 0); e.burnDps = def.finBurn + ab('c_flame', 0); }
+        if (!a.finisher) e.hitstun *= ab('x_dizzy', 1);
+        if (a.finisher) {
+          e.hitstun += ab('s_salt', 0);
+          const hl = ab('w_headlock', 0) * (e.def.boss ? 0.5 : 1);
+          if (hl > (e.frozen || 0)) { e.frozen = hl; ring(e.x, e.y, e.r, '#ffd0a8', e.r * 0.8); }
+          if (lvl('b_fireworks')) {
+            ring(e.x, e.y, 4, '#ff7ce8', ab('b_fireworks') / 3.2);
+            burst(e.x, e.y, e.r, '#ff7ce8', 12, 420);
+            pushAround(e, ab('b_fireworks'), 2, 450, true, a.hit);
+          }
+        }
         elementHit(e);
         const vamp = ab('vampire', 0);
         if (vamp && p.pct > 0) {
@@ -1325,7 +1401,7 @@
     // 스모: 강타가 끝나면 발을 굴러 주변을 밀어낸다(finQuake = 반경)
     if (!a.ranged && a.finisher && def.finQuake && !a.quaked && a.t > def.active[1]) {
       a.quaked = true;
-      pushAround(p, def.finQuake, 3, 380, true, a.hit);
+      pushAround(p, def.finQuake + ab('s_quake', 0), 3, 380, true, a.hit);
       fx.shake = Math.max(fx.shake, 10 * 0.64);
     }
     if (a.t >= def.duration) p.atk = null;
@@ -1411,9 +1487,10 @@
       Sfx.play('pick');
       return;
     }
-    const dmg = A.damage * ab('tough', 1);
+    const dmg = A.damage * ab('tough', 1) * (p.atk ? ab('x_weave', 1) : 1);
     p.pct += dmg;
-    let power = A.force * (1 + p.pct / 80) / p.mass;
+    let power = A.force * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1);
+    p.counterT = lvl('x_counter') ? 4 : 0;
     if (lvl('grip') && Math.hypot(p.x, p.y) > R * 0.7) power *= ab('grip');
     // 체력 1% 이하(피해 198%+)면 아무리 작은 공격에도 기둥 밖으로 날아간다
     if (p.pct >= 198) {
@@ -1692,7 +1769,8 @@
     // 분열 슬라임: 쓰러지면 작은 슬라임으로 갈라져 나온다
     const sp = e.def.split;
     if (sp && !player.falling) for (let n = 0; n < sp.count; n++) spawnEnemy(sp.type);
-    const adr = ab('adrenaline', 0);
+    // 전용 능력 회복: 관중 환호(3연쇄 이상), 불맛 시식(불타는 적)
+    const adr = ab('adrenaline', 0) + (game.chainN >= 3 ? ab('b_cheer', 0) : 0) + (e.burnT > 0 ? ab('c_taste', 0) : 0);
     if (adr && !player.falling && player.pct > 0) {
       player.pct = Math.max(0, player.pct - adr);
       text(player.x, player.y, player.r * 3, `-${adr}%`, '#7dff9a', 18);

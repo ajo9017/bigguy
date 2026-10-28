@@ -290,6 +290,68 @@ window.GAME_DATA = {
     { id: 'cannon',      icon: '💣', name: '대포',        cap: 220, every: 7, lv: [90, 115, 140], desc: v => `7초마다 가까운 적에게 폭탄을 쏨 (폭발 반경 ${v})` },
     { id: 'revenge',     icon: '⚔️', name: '복수',        cap: 5, lv: [1.5, 2, 2.6], desc: v => `맞은 뒤 4초간 공격 넉백 x${v}` },
     { id: 'regen',       icon: '🌿', name: '재생',       cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
+
+    // 캐릭터 전용 능력(only = 캐릭터 id): 그 캐릭터를 고른 판에서만 선택지에 나온다. 캐릭터마다 5종, 최대 Lv6
+    // 빅가이
+    { only: 'bigguy', id: 'b_fireworks', max: 6, cap: 220, icon: '🎆', name: '축제 폭죽',   lv: [70, 90, 110],     desc: v => `3타째가 적중하면 그 자리에서 폭죽이 터져 반경 ${v} 안을 밀어냄` },
+    { only: 'bigguy', id: 'b_belly',     max: 6, cap: 0.4, icon: '🍺', name: '든든한 뱃살', lv: [0.9, 0.8, 0.7],   desc: v => `받는 넉백 x${v}` },
+    { only: 'bigguy', id: 'b_headband',  max: 6, cap: 2, icon: '🎌', name: '필승 머리띠', lv: [1.2, 1.4, 1.6],   desc: v => `내 피해%가 50 이상이면 공격 속도 x${v}` },
+    { only: 'bigguy', id: 'b_festival',  max: 6, cap: 20, icon: '🎉', name: '축제 열기',   lv: [4, 7, 10],        desc: v => `낙하 연쇄 1회마다 공격 넉백 +${v}% (최대 10연쇄)` },
+    { only: 'bigguy', id: 'b_cheer',     max: 6, cap: 12, icon: '👏', name: '관중 환호',   lv: [2, 4, 6],         desc: v => `3연쇄 이상일 때 적이 떨어지면 체력회복 +${v}%` },
+    // 쾌속 닌자
+    { only: 'ninja', id: 'n_shuriken', max: 6, cap: 7, icon: '🌟', name: '수리검',     lv: [2, 3, 4],         desc: v => `3타째에 수리검 ${v}개를 부채꼴로 던짐` },
+    { only: 'ninja', id: 'n_smoke',    max: 6, cap: 2.2, icon: '💨', name: '연막탄',     lv: [0.8, 1.1, 1.4],   desc: v => `대시를 시작하면 주변 적이 ${v}초간 멈춤 (보스는 절반)` },
+    { only: 'ninja', id: 'n_shadow',   max: 6, cap: 45, icon: '🌑', name: '그림자 베기', lv: [8, 13, 18],       desc: v => `대시로 스친 적 피해% +${v}` },
+    { only: 'ninja', id: 'n_backstab', max: 6, cap: 3.5, icon: '🗡️', name: '암습',       lv: [1.4, 1.8, 2.2],   desc: v => `등을 돌린 적을 때리면 넉백 x${v}` },
+    { only: 'ninja', id: 'n_swift',    max: 6, cap: 3, icon: '🌀', name: '질풍 보법',   lv: [1.5, 2, 2.5],     desc: v => `공격하는 동안 이동 속도 x${v}` },
+    // 스모 장사
+    { only: 'sumo', id: 's_quake',  max: 6, cap: 330, icon: '🦶', name: '사로 굴리기', lv: [40, 60, 80],      desc: v => `3타째 발구르기 반경 +${v}` },
+    { only: 'sumo', id: 's_salt',   max: 6, cap: 1.6, icon: '🧂', name: '소금 뿌리기', lv: [0.3, 0.5, 0.7],   desc: v => `3타째에 맞은 적이 ${v}초 더 굳음` },
+    { only: 'sumo', id: 's_shout',  max: 6, cap: 300, icon: '📣', name: '시코 기합',   lv: [110, 140, 170],   desc: v => `3타째를 휘두를 때 반경 ${v} 안의 적을 밀어냄` },
+    { only: 'sumo', id: 's_dohyo',  max: 6, cap: 1.5, icon: '🏟️', name: '도효 버티기', lv: [0.2, 0.35, 0.5],  desc: v => `내 피해%가 높을수록 몸무게 증가 (100%당 +${Math.round(v * 100)}%)` },
+    { only: 'sumo', id: 's_stance', max: 6, cap: 0.35, icon: '🤼', name: '중심 낮추기', lv: [0.85, 0.7, 0.6],  desc: v => `공격하는 동안 받는 넉백 x${v}` },
+    // 복서
+    { only: 'boxer', id: 'x_jab',    max: 6, cap: 2.2, icon: '🥊', name: '잽 연타',    lv: [1.2, 1.4, 1.6],   desc: v => `1~2타째 공격 속도 x${v}` },
+    { only: 'boxer', id: 'x_hook',   max: 6, cap: 3, icon: '💫', name: '필살 훅',    lv: [1.3, 1.6, 1.9],   desc: v => `3타째 넉백 x${v}` },
+    { only: 'boxer', id: 'x_dizzy',  max: 6, cap: 3, icon: '😵', name: '다운 펀치',  lv: [1.3, 1.6, 1.9],   desc: v => `1~2타째에 맞은 적의 경직 x${v}` },
+    { only: 'boxer', id: 'x_weave',  max: 6, cap: 0.3, icon: '🪢', name: '위빙',       lv: [0.8, 0.65, 0.5],  desc: v => `공격하는 동안 받는 피해% x${v}` },
+    { only: 'boxer', id: 'x_counter', max: 6, cap: 2.5, icon: '⚔️', name: '카운터 펀치', lv: [1.3, 1.5, 1.7],  desc: v => `맞은 뒤 4초간 공격 속도 x${v}` },
+    // 창술 장군
+    { only: 'general', id: 'g_tip',     max: 6, cap: 3, icon: '🔱', name: '창끝 타격', lv: [1.3, 1.6, 1.9],   desc: v => `사거리 끝자락에 맞은 적 넉백 x${v}` },
+    { only: 'general', id: 'g_sweep',   max: 6, cap: 1.8, icon: '🏇', name: '휘둘러 치기', lv: [1.15, 1.3, 1.45], desc: v => `3타째 사거리 x${v}` },
+    { only: 'general', id: 'g_first',   max: 6, cap: 3, icon: '📜', name: '선제 일격', lv: [1.3, 1.6, 1.9],   desc: v => `피해% 30 미만인 적에게 넉백 x${v}` },
+    { only: 'general', id: 'g_javelin', max: 6, cap: 1600, icon: '🏹', name: '투창',     lv: [450, 600, 750],   desc: v => `3타째에 관통하는 창을 앞으로 던짐 (힘 ${v})` },
+    { only: 'general', id: 'g_drill',   max: 6, cap: 2.5, icon: '🎖️', name: '병영 훈련', lv: [1.3, 1.6, 1.9],  desc: v => `3타째 공격 속도 x${v}` },
+    // 프로 레슬러
+    { only: 'wrestler', id: 'w_rope',     max: 6, cap: 3.5, icon: '🤼', name: '로프 반동',   lv: [1.3, 1.6, 1.9],   desc: v => `3타째 돌진 거리 x${v}` },
+    { only: 'wrestler', id: 'w_lariat',   max: 6, cap: 260, icon: '🔄', name: '래리어트',   lv: [30, 55, 80],      desc: v => `3타째 공격 범위 각도 +${v}°` },
+    { only: 'wrestler', id: 'w_pose',     max: 6, cap: 4, icon: '💪', name: '승리 포즈',   lv: [1.6, 2, 2.4],     desc: v => `1.5초 가만히 서 있다가 치는 첫 공격 넉백 x${v}` },
+    { only: 'wrestler', id: 'w_spirit',   max: 6, cap: 3, icon: '🏆', name: '챔피언 투혼', lv: [1.3, 1.6, 1.9],   desc: v => `피해% 100 이상인 적을 때릴 때 넉백 x${v}` },
+    { only: 'wrestler', id: 'w_headlock', max: 6, cap: 2.5, icon: '🔒', name: '헤드락',      lv: [0.5, 0.8, 1.1],   desc: v => `3타째에 맞은 적이 ${v}초간 꼼짝 못함 (보스는 절반)` },
+    // 불꽃 요리사
+    { only: 'chef', id: 'c_flame', max: 6, cap: 30, icon: '🔥', name: '센 불',     lv: [4, 7, 10],        desc: v => `3타째가 붙이는 불의 초당 피해% +${v}` },
+    { only: 'chef', id: 'c_pan',   max: 6, cap: 3, icon: '🍳', name: '달군 프라이팬', lv: [1.3, 1.6, 1.9],  desc: v => `불타는 적을 때리면 넉백 x${v}` },
+    { only: 'chef', id: 'c_spice', max: 6, cap: 6, icon: '🌶️', name: '매운 양념', lv: [1, 2, 3],         desc: v => `3타째가 붙이는 불이 ${v}초 더 오래 탐` },
+    { only: 'chef', id: 'c_taste', max: 6, cap: 15, icon: '😋', name: '불맛 시식', lv: [4, 7, 10],        desc: v => `불타는 적이 떨어지면 체력회복 +${v}%` },
+    { only: 'chef', id: 'c_flambe', max: 6, cap: 300, icon: '🍷', name: '플랑베',   lv: [110, 140, 170],   desc: v => `3타째를 치면 반경 ${v} 안의 적에게 불이 붙음` },
+    // 마법사
+    { only: 'wizard', id: 'm_boom',  max: 6, cap: 260, icon: '💥', name: '폭발 확대', lv: [30, 55, 80],      desc: v => `폭발 구슬 폭발 반경 +${v}` },
+    { only: 'wizard', id: 'm_split', max: 3, cap: 4, grow: 1, icon: '🔮', name: '구슬 분열', lv: [1, 2, 3], desc: v => `폭발 구슬이 ${v}개 더 나감 (부채꼴)` },
+    { only: 'wizard', id: 'm_curse', max: 6, cap: 60, icon: '☠️', name: '저주',      lv: [8, 14, 20],       desc: v => `폭발에 휘말린 적 피해% +${v}` },
+    { only: 'wizard', id: 'm_ward',  max: 6, cap: 2, icon: '🛡️', name: '마나 방벽', lv: [0.5, 0.8, 1.1],   desc: v => `폭발 구슬을 쏜 뒤 ${v}초간 무적` },
+    { only: 'wizard', id: 'm_flow',  max: 2, grow: 1, icon: '🌀', name: '마력 순환', lv: [1, 2],            desc: v => `${v}타 일찍 구슬을 쏨 (5타째 → ${5 - v}타째)` },
+    // 군인
+    { only: 'soldier', id: 'so_snipe',   max: 6, cap: 3.5, icon: '🎯', name: '저격 숙련', lv: [1.3, 1.6, 1.9], desc: v => `저격탄 넉백 x${v}` },
+    { only: 'soldier', id: 'so_burst',   max: 3, cap: 4, grow: 1, icon: '🔫', name: '점사',      lv: [1, 2, 3],       desc: v => `저격탄이 ${v}발 더 나감 (부채꼴)` },
+    { only: 'soldier', id: 'so_grenade', max: 6, cap: 220, icon: '💣', name: '유탄',      lv: [70, 90, 110],   desc: v => `저격탄이 맞은 곳에서 터져 반경 ${v}를 밀어냄` },
+    { only: 'soldier', id: 'so_pierce',  max: 1, icon: '🔩', name: '철갑탄',    lv: [1],             desc: v => '저격탄이 적을 관통함' },
+    { only: 'soldier', id: 'so_flow',    max: 2, grow: 1, icon: '🧰', name: '탄창 교체', lv: [1, 2],          desc: v => `${v}타 일찍 사격함 (5타째 → ${5 - v}타째)` },
+    // 궁수
+    { only: 'archer', id: 'ar_power',  max: 6, cap: 3.5, icon: '🏹', name: '강궁 단련', lv: [1.3, 1.6, 1.9], desc: v => `강궁 화살 넉백 x${v}` },
+    { only: 'archer', id: 'ar_multi',  max: 3, cap: 4, grow: 1, icon: '🎯', name: '다발 사격', lv: [1, 2, 3],       desc: v => `강궁 화살이 ${v}발 더 나감 (부채꼴)` },
+    { only: 'archer', id: 'ar_fire',   max: 6, cap: 30, icon: '🔥', name: '불화살',    lv: [5, 8, 11],      desc: v => `강궁 화살에 맞은 적이 3초간 불타 초당 피해% +${v}` },
+    { only: 'archer', id: 'ar_pierce', max: 1, icon: '🪶', name: '관통 화살', lv: [1],             desc: v => '강궁 화살이 적을 관통함' },
+    { only: 'archer', id: 'ar_flow',   max: 2, grow: 1, icon: '🌲', name: '속사',      lv: [1, 2],          desc: v => `${v}타 일찍 화살을 쏨 (5타째 → ${5 - v}타째)` },
   ],
 
   // 캐릭터 10종(근접 7 + 원거리 3). unlock = 해금 업적(없으면 처음부터 사용 가능): stat(bestWave 최고 웨이브, bestScore 최고 점수, totalKills 누적 처치, plays 플레이 횟수) 값이 need 이상이면 해금. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
