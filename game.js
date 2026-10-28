@@ -1984,6 +1984,40 @@
     ctx.globalAlpha = 1;
   }
 
+  // 주기적으로 발동하는 능력의 쿨타임: frac = 충전된 비율, left = 남은 초, active = 발동 중(거대화), ready = 대기 중(방패막)
+  function cooldownOf(id) {
+    const p = player;
+    if (id === 'roar') return { frac: p.roarT / ab('roar'), left: ab('roar') - p.roarT };
+    if (id === 'regen') return { frac: (p.regenT || 0) / 5, left: 5 - (p.regenT || 0) };
+    if (id === 'shield') return p.shieldT >= ab('shield') ? { frac: 1, left: 0, ready: true } : { frac: p.shieldT / ab('shield'), left: ab('shield') - p.shieldT };
+    if (id === 'giant') {
+      if (p.giant > 0) return { frac: 1, left: p.giant, active: true };
+      return { frac: p.giantT / ABIL.giant.every, left: ABIL.giant.every - p.giantT };
+    }
+    return null;
+  }
+  function drawCooldown(cd, cx, cy) {
+    const rr = 15;
+    if (!cd.active && !cd.ready && cd.frac < 1) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, rr, -Math.PI / 2 + clamp(cd.frac, 0, 1) * Math.PI * 2, Math.PI * 1.5);
+      ctx.closePath(); ctx.fill();
+    }
+    if (cd.active || cd.ready) {
+      ctx.strokeStyle = cd.active ? '#ffd84a' : '#b8a0ff'; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(time * 8);
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (cd.ready) return;
+    const t = cd.left >= 10 ? String(Math.ceil(cd.left)) : Math.max(0, cd.left).toFixed(1);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 11px system-ui, sans-serif';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.strokeText(t, cx, cy + 1);
+    ctx.fillStyle = cd.active ? '#ffd84a' : '#ffffff'; ctx.fillText(t, cx, cy + 1);
+  }
+
   function drawHUD() {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (fx.red > 0) {
@@ -2013,13 +2047,16 @@
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
 
-    // 보유 능력 아이콘
+    // 보유 능력 아이콘. 몇 초마다 발동하는 능력은 남은 쿨타임을 시계 모양으로 덮고 초를 적는다
     let ix = 16, iy = 62;
     const maxX = Math.max(140, W * 0.32);
     for (const [id, l] of Object.entries(player.abil)) {
       ctx.font = '20px system-ui, sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.fillText(ABIL[id].icon, ix, iy);
+      const cd = cooldownOf(id);
+      if (cd) drawCooldown(cd, ix + 11, iy + 11);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       const tag = id === 'second_wind' ? `x${player.saves}` : (l > 1 ? String(l) : '');
       if (tag) {
         ctx.font = '800 11px system-ui, sans-serif';
