@@ -22,6 +22,6 @@
 게임 안 '💬 개선 요청'은 Supabase Edge Function(대시보드 이름 `clever-api`, 코드 `supabase/functions/request/index.ts`, Secret: `GITHUB_TOKEN`, `OWNER_CODE`)을 거쳐 제목이 `[요청]`으로 시작하는 GitHub 이슈를 바로 만든다. 게임을 떠나지 않는다.
 주인 코드 없이 보낸 요청은 본문에 `bigguy:player` 표시가 붙고, 주인이 `반영` 댓글을 달기 전에는 자동 반영되지 않는다. 이 표시는 Edge Function만 붙이므로 게임 코드에서 지우거나 우회하는 길을 만들지 않는다.
 열린 이슈 중 `[요청]` 이슈가 플레이어의 개선 요청이다.
-- 자동 반영: `.github/workflows/requests.yml`이 저장소 주인(ajo9017)의 `[요청]` 이슈는 열리자마자, 다른 사람 것은 주인이 `반영`이 들어간 댓글을 달면 `반영대기` 라벨을 붙이고, 라벨이 붙은 이슈를 한 번에 모아 Claude로 반영해서 `main`에 push한다(매시간 남은 것도 다시 확인). 주인의 댓글은 그 요청의 추가 설명으로 함께 반영한다. Secret `CLAUDE_CODE_OAUTH_TOKEN` 또는 `ANTHROPIC_API_KEY`가 필요하다
+- 자동 반영: `.github/workflows/requests.yml`이 저장소 주인(ajo9017)의 `[요청]` 이슈는 열리자마자, 다른 사람 것은 주인이 `반영`이 들어간 댓글을 달면 `반영대기` 라벨을 붙이고, 라벨이 붙은 이슈를 한 번에 모아 Claude로 반영해서 `main`에 push한다(매시간 남은 것도 다시 확인). 주인의 댓글은 그 요청의 추가 설명으로 함께 반영한다. 임시로 `PLAYER_AUTO_UNTIL`(워크플로 env) 시각까지는 플레이어 요청도 주간 사용량 70% 미만이면 바로 반영한다. Secret `CLAUDE_CODE_OAUTH_TOKEN` 또는 `ANTHROPIC_API_KEY`가 필요하다
 - 상태 라벨: `반영대기`(작업 순서 기다리는 중), `작업중`(자동 반영 진행 중), `일부 반영`(남은 부분 있음). 다 반영되면 커밋의 `Closes #번호`로 이슈가 닫힌다. 게임의 개선 요청 창 아래 '요청 현황'이 이 상태를 보여준다
 - 수동 반영: "요청 처리해줘"라고 하면 `.claude/skills/requests` 스킬대로 확인 질문 없이 반영, 테스트, push까지 한다. 작업 브랜치에서 했으면 PR을 만들고 바로 Merge해서 실제 게임에 반영한다(주인이 미리 허락함).
