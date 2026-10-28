@@ -114,6 +114,63 @@ window.GAME_DATA = {
       attack: { range: 60, windup: 0.8, recover: 1.0, damage: 16, force: 900 },
     },
 
+    // 특별한 적 10종 (요청 #64). 18웨이브부터 섞여 나오고 무한 웨이브 pool에도 들어간다
+    // web = every초마다 플레이어 쪽 바닥에 거미줄 count개(밟으면 이동속도 x slow, life초 유지), phase = every초마다 time초 무적(맞아도 피해·넉백 없음)
+    // anchor = 피해 200%(체력 0)가 되기 전에는 절대 밀리지 않음, fan = 쓰러질 때 부채꼴(spread 라디안)로 투사체 count개
+    // pull = every초마다 플레이어를 force로 끌어당김, rage = 피해%가 높을수록 이동속도가 최대 1+rage배, split = 쓰러질 때 그 종류 count마리로 갈라짐
+    // shoot.slow = 맞으면 time초간 이동속도 x mul, legs = 거미 다리 그리기
+    spider: {
+      name: '거미줄 거미', color: '#5b4a6e', radius: 19, mass: 1.0, speed: 95, behavior: 'walker', score: 420, legs: true,
+      web: { every: 3.5, radius: 72, life: 9, slow: 0.4, count: 2 },
+      attack: { range: 46, windup: 0.5, recover: 0.7, damage: 10, force: 650 },
+    },
+    phantom: {
+      name: '위상술사', color: '#6fa8b8', radius: 21, mass: 1.2, speed: 100, behavior: 'walker', score: 520, ghost: true,
+      phase: { every: 10, time: 5 },
+      attack: { range: 48, windup: 0.5, recover: 0.8, damage: 12, force: 800 },
+    },
+    anvil: {
+      name: '철옹성', color: '#5d6270', radius: 29, mass: 30, speed: 50, behavior: 'walker', score: 800, anchor: true,
+      attack: { range: 60, windup: 0.9, recover: 1.1, damage: 18, force: 950 },
+    },
+    clown: {
+      name: '폭죽 광대', color: '#ff7ab8', radius: 21, mass: 1.0, speed: 105, behavior: 'walker', score: 600,
+      fan: { count: 5, spread: 1.0, speed: 340, radius: 11, life: 800, color: '#ffd84a' },
+      attack: { range: 46, windup: 0.5, recover: 0.7, damage: 9, force: 620 },
+    },
+    broodmother: {
+      name: '어미 벌레', color: '#8a9a3a', radius: 28, mass: 2.4, speed: 60, behavior: 'walker', score: 700, teeth: true,
+      summon: { every: 7, type: 'runner', count: 2 },
+      attack: { range: 56, windup: 0.8, recover: 1.0, damage: 14, force: 850 },
+    },
+    frostmage: {
+      name: '서리 마법사', color: '#7fc8e8', radius: 19, mass: 0.9, speed: 85, behavior: 'shooter', score: 600,
+      attack: { range: 290, windup: 0.6, recover: 1.3, damage: 7, force: 520 },
+      shoot: { speed: 320, radius: 12, color: '#bfe9ff', life: 750, slow: { time: 2.5, mul: 0.45 } },
+    },
+    magnet: {
+      name: '자석 괴물', color: '#c0392b', radius: 25, mass: 2.0, speed: 70, behavior: 'walker', score: 650, horn: true,
+      pull: { every: 6, force: 650 },
+      attack: { range: 54, windup: 0.7, recover: 0.9, damage: 14, force: 900 },
+    },
+    enraged: {
+      name: '분노 곰', color: '#a0522d', radius: 27, mass: 2.2, speed: 70, behavior: 'walker', score: 650, teeth: true, rage: 1.6,
+      attack: { range: 54, windup: 0.6, recover: 0.8, damage: 14, force: 900 },
+    },
+    splitter: {
+      name: '분열 슬라임', color: '#58c46a', radius: 26, mass: 1.8, speed: 80, behavior: 'walker', score: 550, split: { type: 'splitling', count: 2 },
+      attack: { range: 50, windup: 0.5, recover: 0.8, damage: 12, force: 750 },
+    },
+    splitling: {
+      name: '꼬마 슬라임', color: '#8be09a', radius: 15, mass: 0.7, speed: 150, behavior: 'walker', score: 100,
+      attack: { range: 36, windup: 0.3, recover: 0.5, damage: 6, force: 450 },
+    },
+    bomber: {
+      name: '장판 폭격병', color: '#e0833a', radius: 20, mass: 1.1, speed: 90, behavior: 'walker', score: 650,
+      zone: { every: 2.6, radius: 62, windup: 1.0, damage: 13, force: 850, count: 3 },
+      attack: { range: 46, windup: 0.5, recover: 0.8, damage: 11, force: 700 },
+    },
+
     // 보스: 5웨이브마다 하나씩. 웨이브에 boss_random을 적으면 stages([처음, 끝] 스테이지)에 맞는 보스 중 무작위로 나온다. boss: true
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
@@ -298,18 +355,18 @@ window.GAME_DATA = {
     { boss_random: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
     { ninja: 4, rhino: 2, tank: 3, mage: 2 },                  // 16 닌자, 마법사 등장
     { ninja: 5, rusher: 4, brute: 3, mage: 2 },                // 17
-    { golem: 2, ninja: 4, rhino: 2, tank: 3 },                 // 18 골렘 등장
-    { golem: 2, ninja: 4, rusher: 4, mage: 2, witch: 1 },      // 19 장판 마녀 등장
+    { golem: 2, ninja: 4, rhino: 2, tank: 3, spider: 2, splitter: 2 },                 // 18 골렘 등장
+    { golem: 2, ninja: 4, rusher: 4, mage: 2, witch: 1, clown: 2 },      // 19 장판 마녀 등장
     { boss_random: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
-    { hornet: 8, golem: 2, rhino: 3, spiky: 4 },               // 21 말벌 등장
-    { hornet: 8, mage: 3, witch: 2, tank: 4, rhino: 3 },       // 22
-    { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4 },    // 23
-    { ogre: 3, hornet: 6, golem: 2, ninja: 5 },                // 24 오우거 등장
+    { hornet: 8, golem: 2, rhino: 3, spiky: 4, enraged: 2, phantom: 1 },               // 21 말벌 등장
+    { hornet: 8, mage: 3, witch: 2, tank: 4, rhino: 3, frostmage: 2, bomber: 1 },       // 22
+    { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4, anvil: 1, magnet: 2 },    // 23
+    { ogre: 3, hornet: 6, golem: 2, ninja: 5, broodmother: 1, spider: 2 },                // 24 오우거 등장
     { boss_random: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
-    { ogre: 4, golem: 3, mage: 3, witch: 2, hornet: 5 },       // 26
+    { ogre: 4, golem: 3, mage: 3, witch: 2, hornet: 5, phantom: 2, clown: 2 },       // 26
     { reaper: 3, ogre: 3, golem: 3, spiky: 5 },                // 27 저승사자 등장
-    { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6 },     // 28
-    { reaper: 4, ogre: 4, witch: 3, mage: 3, rusher: 5 },      // 29
+    { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6, anvil: 2, enraged: 2 },     // 28
+    { reaper: 4, ogre: 4, witch: 3, mage: 3, rusher: 5, frostmage: 2, magnet: 2, bomber: 2 },      // 29
     { boss_random: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
   ],
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
@@ -334,7 +391,8 @@ window.GAME_DATA = {
     count: 16, tough: 0.08, elite: 0.1, eliteStep: 0.02, eliteMax: 0.45, eliteMass: 1.7, eliteScale: 1.18,
     // late: 레벨 from부터는 단단해짐/정예 증가 속도가 boost배 빨라진다 (게임이 너무 길어지지 않게)
     late: { from: 40, boost: 3 },
-    pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1 },
+    pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1,
+      spider: 2, phantom: 2, anvil: 1, clown: 2, broodmother: 1, frostmage: 1, magnet: 1, enraged: 2, splitter: 2, bomber: 1 },
   },
   spawnInterval: 0.9,
   maxAlive: 7,

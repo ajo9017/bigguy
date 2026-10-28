@@ -132,7 +132,7 @@
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
-  let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [];
+  let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [];
   let chatOpen = false;
 
   // ---------- 입력 ----------
@@ -639,13 +639,13 @@
   function resetGame() {
     player = makeEntity('player', D.player, 0, 0);
     const ch = charById(selChar);
-    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, dashCd: 0, dashT: 0, dashHit: null, giantT: 0, giant: 0, grow: 1, shieldT: 0, pt: {}, clone: null, ghost: 0, revengeT: 0, starT: 0, hasteT: 0, powerT: 0, ch,
+    Object.assign(player, { combo: 0, comboT: 0, abil: {}, saves: 0, saveT: 0, roarT: 0, dashCd: 0, dashT: 0, dashHit: null, giantT: 0, giant: 0, grow: 1, shieldT: 0, pt: {}, clone: null, ghost: 0, revengeT: 0, starT: 0, hasteT: 0, powerT: 0, slowT: 0, slowMul: 1, ch,
       attackDef: { ...D.player.attack, ...(ch.attack || {}) } });
     if (ch.skill && ABIL[ch.skill]) {
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
-    enemies = []; particles = []; items = []; shots = []; eshots = []; zones = [];
+    enemies = []; particles = []; items = []; shots = []; eshots = []; zones = []; webs = [];
     Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
@@ -775,6 +775,9 @@
     e.state = 'spawn'; e.z = def.boss ? 520 : -80; e.face = def.boss ? Math.atan2(player.y, player.x) : bestA + Math.PI;
     if (def.boss) { e.drop = true; e.mass *= 1 + 0.05 * Math.max(0, game.wave + 1 - (def.stages ? def.stages[0] : 0)); } // 보스는 스테이지가 높을수록 묵직해진다
     if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
+    if (def.web) e.webT = def.web.every * rand(0.4, 1);
+    if (def.phase) { e.phaseC = def.phase.every * rand(0.3, 0.9); e.invulnT = 0; }
+    if (def.pull) e.pullT = def.pull.every * rand(0.6, 1);
     const n = endlessN();
     if (n && !def.boss) {
       e.mass *= 1 + D.endless.tough * hardN();
@@ -1038,13 +1041,20 @@
       s.x += s.vx * dt; s.y += s.vy * dt; s.left -= Math.hypot(s.vx, s.vy) * dt;
       if (grounded && Math.hypot(p.x - s.x, p.y - s.y) < p.r + s.r) {
         const l = Math.hypot(s.vx, s.vy) || 1;
+        const vuln = !(p.inv > 0 || p.starT > 0);
         hitPlayer(s.from, s.vx / l, s.vy / l, s.from.def.attack);
+        if (s.slow && vuln) { p.slowT = s.slow.time; p.slowMul = s.slow.mul; text(p.x, p.y, p.r * 3.6, '느려졌다!', '#bfe9ff', 18); }
         burst(s.x, s.y, s.r, s.color, 8, 300);
         s.dead = true;
       }
       if (s.left <= 0 || Math.hypot(s.x, s.y) > R * 1.6) s.dead = true;
     }
     eshots = eshots.filter(s => !s.dead);
+    for (const w of webs) {
+      w.t += dt;
+      if (grounded && !p.ghost && Math.hypot(p.x - w.x, p.y - w.y) < w.r + p.r * 0.3) { p.slowT = Math.max(p.slowT, 0.25); p.slowMul = w.slow; }
+    }
+    webs = webs.filter(w => w.t < w.life);
     for (const z of zones) {
       z.t += dt;
       if (z.t < z.windup) continue;
@@ -1258,7 +1268,8 @@
     } else {
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
-      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? 0.35 : 1);
+      if (p.slowT > 0) p.slowT -= dt;
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? 0.35 : 1) * (p.slowT > 0 ? p.slowMul : 1);
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
       if (m > 0.2 && !p.atk) p.face = Math.atan2(mv.y, mv.x);
@@ -1337,7 +1348,7 @@
       const near = enemies.filter(o => o !== e && activeEnemy(o) && o.z > -1 && Math.hypot(o.x - e.x, o.y - e.y) < 170)
         .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, 2);
       for (const o of near) {
-        o.pct += ab('spark');
+        if (!o.invulnT) o.pct += ab('spark');
         o.flash = 0.12;
         ring(o.x, o.y, o.r, '#fff35c', o.r * 0.7);
         text(o.x, o.y, o.r * 2.2, `${Math.round(o.pct)}%`, '#fff35c', 16);
@@ -1352,8 +1363,19 @@
       text(e.x, e.y, e.r * 3, '막음!', '#a8c8ff', 18);
       ring(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, e.r, '#a8c8ff', e.r * 0.6);
     }
+    // 위상술사: 무적인 동안은 피해도 넉백도 없다
+    if (e.invulnT > 0) {
+      text(e.x, e.y, e.r * 3, '무적!', '#ffe9a8', 18);
+      ring(e.x, e.y, e.r, '#ffe9a8', e.r * 0.7);
+      return;
+    }
     e.pct += dmg;
-    const power = kb * (1 + e.pct / 80) / e.mass;
+    let power = kb * (1 + e.pct / 80) / e.mass;
+    // 철옹성: 체력이 0(피해 200%)이 되기 전에는 절대 밀리지 않고, 0이 되면 기둥 밖으로 날아간다
+    if (e.def.anchor) {
+      if (e.pct < 200) { power = 0; text(e.x, e.y - e.r, e.r * 3, '꿈쩍 않는다', '#c8ccd8', 16); }
+      else power = Math.max(power, R * 2.2 * FRICTION);
+    }
     e.vx += nx * power; e.vy += ny * power;
     // 보스는 공격 동작(준비/공격/후딜) 중에 맞아도 경직되지 않아 공격이 끊기지 않는다(넉백과 피해는 그대로)
     if (!(e.def.boss && ['windup', 'slamwind', 'attack', 'recover'].includes(e.state))) {
@@ -1421,7 +1443,7 @@
   function updateEnemy(e, dt) {
     if (e.falling) return;
     if (e.burnT > 0) {
-      e.burnT -= dt; e.pct += e.burnDps * dt;
+      e.burnT -= dt; if (!(e.invulnT > 0)) e.pct += e.burnDps * dt;
       if (Math.random() < dt * 10) burst(e.x, e.y, e.r, '#ff8a3c', 1, 90);
     }
     if (e.frozen > 0) {
@@ -1429,6 +1451,16 @@
       if (e.state !== 'spawn') { e.state = 'stun'; e.hitstun = Math.max(e.hitstun, e.frozen); }
     }
     e.st += dt;
+    if (e.def.phase && e.state !== 'spawn') {
+      const PH = e.def.phase;
+      if (e.invulnT > 0) e.invulnT -= dt;
+      else if ((e.phaseC += dt) >= PH.every) {
+        e.phaseC = 0; e.invulnT = PH.time;
+        ring(e.x, e.y, e.r, '#ffe9a8', e.r * 1.6);
+        text(e.x, e.y, e.r * 3, '무적!', '#ffe9a8', 22);
+        Sfx.play('pick');
+      }
+    }
     if (e.state === 'spawn') {
       if (e.drop) {
         const u = clamp(e.st / 0.55, 0, 1);
@@ -1482,6 +1514,28 @@
           text(e.x, e.y, e.r * 3, '장판!', '#ff7fe0', 22);
           Sfx.play('windup');
         }
+        const wb = e.def.web;
+        if (wb && (e.webT -= dt) <= 0) {
+          // 거미줄: 플레이어가 지나갈 길목(플레이어 쪽)에 바닥 거미줄을 깐다
+          e.webT = wb.every;
+          for (let n = 0; n < wb.count; n++) {
+            const t = rand(0.5, 1), a = rand(0, Math.PI * 2), o = n === 0 ? 0 : rand(30, 90);
+            let wx = e.x + dx * t + Math.cos(a) * o, wy = e.y + dy * t + Math.sin(a) * o;
+            const wl = Math.hypot(wx, wy);
+            if (wl > R * 0.92) { wx *= R * 0.92 / wl; wy *= R * 0.92 / wl; }
+            webs.push({ x: wx, y: wy, r: wb.radius, t: 0, life: wb.life, slow: wb.slow });
+          }
+          text(e.x, e.y, e.r * 3, '거미줄!', '#d8c8f0', 20);
+          Sfx.play('swish');
+        }
+        const pl = e.def.pull;
+        if (pl && (e.pullT -= dt) <= 0 && d > 90 && d < R * 1.6) {
+          e.pullT = pl.every;
+          p.vx += -dx / d * pl.force; p.vy += -dy / d * pl.force;
+          ring(p.x, p.y, p.r, '#ff6b6b', p.r * 2.4); ring(e.x, e.y, e.r, '#ff6b6b', e.r * 2);
+          text(e.x, e.y, e.r * 3, '끌어당긴다!', '#ff6b6b', 20);
+          Sfx.play('windup');
+        }
         const bl = e.def.blink;
         if (bl && (e.blinkT -= dt) <= 0 && d > 110) {
           // 유령: 플레이어 등 뒤로 순간이동해서 바로 공격 준비
@@ -1522,9 +1576,10 @@
           e.state = 'windup'; e.st = 0;
           Sfx.play('windup');
         } else {
-          e.x += Math.cos(e.face) * e.def.speed * dt;
-          e.y += Math.sin(e.face) * e.def.speed * dt;
-          e.walk += dt * 10;
+          const spd = e.def.speed * (e.def.rage ? 1 + e.def.rage * Math.min(1, e.pct / 150) : 1);
+          e.x += Math.cos(e.face) * spd * dt;
+          e.y += Math.sin(e.face) * spd * dt;
+          e.walk += dt * (e.def.rage ? 10 * spd / e.def.speed : 10);
         }
         break;
       }
@@ -1581,7 +1636,7 @@
           if (e.state === 'attack' && e.st >= A.dashTime) { e.state = 'recover'; e.st = 0; }
         } else if (e.def.behavior === 'shooter') {
           const S0 = e.def.shoot;
-          eshots.push({ x: e.x, y: e.y, vx: Math.cos(e.face) * S0.speed, vy: Math.sin(e.face) * S0.speed, r: S0.radius, color: S0.color, left: S0.life, from: e });
+          eshots.push({ x: e.x, y: e.y, vx: Math.cos(e.face) * S0.speed, vy: Math.sin(e.face) * S0.speed, r: S0.radius, color: S0.color, left: S0.life, from: e, slow: S0.slow });
           burst(e.x, e.y, e.r, S0.color, 6, 200);
           Sfx.play('swish');
           e.state = 'recover'; e.st = 0;
@@ -1621,6 +1676,19 @@
     game.score += pts;
     text(e.x, e.y, 50, game.chainN > 1 ? `+${pts} x${game.chainN}` : `+${pts}`, '#ffd84a', 24);
     if (e.def.boss) bossDefeated(e);
+    // 폭죽 광대: 쓰러지면서 플레이어 쪽으로 부채꼴 투사체를 뿌린다
+    const fn = e.def.fan;
+    if (fn && !player.falling) {
+      const base = Math.atan2(player.y - e.y, player.x - e.x);
+      for (let i = 0; i < fn.count; i++) {
+        const a = base + (i - (fn.count - 1) / 2) * fn.spread / Math.max(1, fn.count - 1);
+        eshots.push({ x: e.x, y: e.y, vx: Math.cos(a) * fn.speed, vy: Math.sin(a) * fn.speed, r: fn.radius, color: fn.color, left: fn.life, from: e });
+      }
+      text(e.x, e.y, 80, '펑!', fn.color, 24);
+    }
+    // 분열 슬라임: 쓰러지면 작은 슬라임으로 갈라져 나온다
+    const sp = e.def.split;
+    if (sp && !player.falling) for (let n = 0; n < sp.count; n++) spawnEnemy(sp.type);
     const adr = ab('adrenaline', 0);
     if (adr && !player.falling && player.pct > 0) {
       player.pct = Math.max(0, player.pct - adr);
@@ -1695,6 +1763,7 @@
         }
       }
     }
+    if (e.kind === 'enemy' && (e.invulnT > 0 || (e.def.anchor && e.pct < 200))) e.vx = e.vy = 0;
     e.x += e.vx * dt; e.y += e.vy * dt;
     const f = Math.exp(-FRICTION * dt); e.vx *= f; e.vy *= f;
   }
@@ -1879,6 +1948,16 @@
   }
 
   function drawEnemyShots() {
+    for (const w of webs) {
+      const rr = w.r * S, px = sx(w.x), py = sy(w.y, 0), fade = clamp((w.life - w.t) / 1.5, 0, 1) * clamp(w.t / 0.3, 0, 1);
+      ctx.fillStyle = `rgba(230,225,245,${0.14 * fade})`;
+      ctx.strokeStyle = `rgba(235,230,250,${0.65 * fade})`; ctx.lineWidth = Math.max(1, 1.5 * S);
+      ctx.beginPath(); ctx.ellipse(px, py, rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr * SQ); }
+      ctx.stroke();
+      for (const k of [0.35, 0.68]) { ctx.beginPath(); ctx.ellipse(px, py, rr * k, rr * k * SQ, 0, 0, Math.PI * 2); ctx.stroke(); }
+    }
     for (const z of zones) {
       const u = clamp(z.t / z.windup, 0, 1), rr = z.r * S, px = sx(z.x), py = sy(z.y, 0);
       ctx.fillStyle = `rgba(255,90,220,${0.12 + 0.2 * u})`;
@@ -2276,6 +2355,14 @@
         ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }
+    if (d.legs) {
+      ctx.strokeStyle = tint(e, shade(d.color, -0.4)); ctx.lineWidth = lw * 1.2;
+      for (let i = 0; i < 8; i++) {
+        const a = (i % 4 - 1.5) * 0.7 + (i < 4 ? 0 : Math.PI) + Math.sin(e.walk + i) * 0.15;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+        ctx.lineTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 1.2 - r * 0.3); ctx.lineTo(Math.cos(a) * r * 1.7, Math.sin(a) * r * 1.4 + r * 0.2); ctx.stroke();
+      }
+    }
     if (d.ghost) ctx.globalAlpha = 0.72 + 0.15 * Math.sin(time * 4 + e.x);
     if (d.square) {
       const q = r * 0.9;
@@ -2343,6 +2430,18 @@
       }
     }
     ctx.globalAlpha = 1;
+    if (d.anchor && e.pct < 200) {
+      // 철옹성: 두꺼운 강철 갑옷 띠와 리벳
+      ctx.strokeStyle = '#2b2f3a'; ctx.lineWidth = Math.max(3, r * 0.22);
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#c0c8d8';
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; circle(Math.cos(a) * r * 0.92, Math.sin(a) * r * 0.92, Math.max(1.5, r * 0.07), '#c0c8d8'); }
+    }
+    if (e.invulnT > 0) {
+      ctx.strokeStyle = `rgba(255,233,168,${0.6 + 0.4 * Math.sin(time * 14)})`; ctx.lineWidth = Math.max(2, r * 0.14);
+      ctx.fillStyle = 'rgba(255,233,168,0.22)';
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
 
     if (e.state === 'stun' && e.hitstun > 0.25) {
       ctx.fillStyle = '#ffe066';
