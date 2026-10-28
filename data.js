@@ -301,6 +301,8 @@ window.GAME_DATA = {
   // 정예: 확률 elite + eliteStep * n (최대 eliteMax), 몸무게 x eliteMass, 크기 x eliteScale, 금색 테두리
   endless: {
     count: 16, tough: 0.08, elite: 0.1, eliteStep: 0.02, eliteMax: 0.45, eliteMass: 1.7, eliteScale: 1.18,
+    // late: 레벨 from부터는 단단해짐/정예 증가 속도가 boost배 빨라진다 (게임이 너무 길어지지 않게)
+    late: { from: 40, boost: 3 },
     pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1 },
   },
   // 경험치: 적 처치 경험치 = score / div. 레벨업에 필요한 경험치 = base + step*n + quad*n^2 (n = 현재 레벨-1)

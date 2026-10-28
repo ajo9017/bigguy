@@ -738,13 +738,18 @@
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
     game.banner = boss.length ? { text: `BOSS LEVEL ${i + 1}`, t: 2.4, max: 2.4 } : { text: `LEVEL ${i + 1}`, t: 2, max: 2 };
-    if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * endlessN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
+    if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * hardN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
 
   // 30웨이브 이후 몇 번째 웨이브인지 (그 전은 0)
   const endlessN = () => Math.max(0, game.wave - D.waves.length + 1);
-  const eliteChance = () => Math.min(D.endless.eliteMax, D.endless.elite + D.endless.eliteStep * endlessN());
+  // 난이도 단계: 레벨 late.from 이후로는 n이 boost배 빨리 오른다
+  const hardN = () => {
+    const n = endlessN(), L = D.endless.late;
+    return L ? n + Math.max(0, game.wave + 1 - L.from) * (L.boost - 1) : n;
+  };
+  const eliteChance = () => Math.min(D.endless.eliteMax, D.endless.elite + D.endless.eliteStep * hardN());
 
   function spawnEnemy(type) {
     const def = D.enemies[type];
@@ -766,7 +771,7 @@
     if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
     const n = endlessN();
     if (n && !def.boss) {
-      e.mass *= 1 + D.endless.tough * n;
+      e.mass *= 1 + D.endless.tough * hardN();
       if (Math.random() < eliteChance()) { e.elite = true; e.mass *= D.endless.eliteMass; e.r *= D.endless.eliteScale; }
     }
     enemies.push(e);
