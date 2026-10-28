@@ -379,7 +379,8 @@ window.GAME_DATA = {
     { only: 'wizard', id: 'm_split', max: 3, cap: 4, grow: 1, icon: '🔮', name: '구슬 분열', lv: [1, 2, 3], desc: v => `폭발 구슬이 ${v}개 더 나감 (부채꼴)` },
     { only: 'wizard', id: 'm_curse', max: 6, cap: 60, icon: '☠️', name: '저주',      lv: [8, 14, 20],       desc: v => `폭발에 휘말린 적 피해% +${v}` },
     { only: 'wizard', id: 'm_ward',  max: 6, cap: 2, icon: '🛡️', name: '마나 방벽', lv: [0.5, 0.8, 1.1],   desc: v => `폭발 구슬을 쏜 뒤 ${v}초간 무적` },
-    { only: 'wizard', id: 'm_flow',  max: 2, grow: 1, icon: '🌀', name: '마력 순환', lv: [1, 2],            desc: v => `${v}타 일찍 구슬을 쏨 (5타째 → ${5 - v}타째)` },
+    { only: 'wizard', id: 'm_bounce', max: 3, cap: 4, grow: 1, icon: '🪩', name: '튕기는 구슬', lv: [1, 2, 3],     desc: v => `폭발 구슬이 터진 뒤 근처 다른 적에게 ${v}번 튕겨 다시 터짐` },
+    { only: 'wizard', id: 'm_flow', max: 2, grow: 1, icon: '🌀', name: '마력 순환', lv: [1, 2],            desc: v => `${v}타 일찍 구슬을 쏨 (5타째 → ${5 - v}타째)` },
     // 군인
     { only: 'soldier', id: 'so_snipe',   max: 6, cap: 3.5, icon: '🎯', name: '저격 숙련', lv: [1.3, 1.6, 1.9], desc: v => `저격탄 넉백 x${v}` },
     { only: 'soldier', id: 'so_burst',   max: 3, cap: 4, grow: 1, icon: '🔫', name: '점사',      lv: [1, 2, 3],       desc: v => `저격탄이 ${v}발 더 나감 (부채꼴)` },

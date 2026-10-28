@@ -1026,7 +1026,7 @@
       shots.push({
         x: p.x + Math.cos(ang) * p.r, y: p.y + Math.sin(ang) * p.r, ang, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
         r: (fin && fin.radius) || R0.radius, color: (fin && fin.color) || R0.color, shape: R0.shape, left: a.range,
-        dmg, kb, heavy: a.finisher, pierce: pierce && !boom, boom, hit: new Set(), fin: a.finisher,
+        dmg, kb, heavy: a.finisher, pierce: pierce && !boom, boom, bounce: boom && a.finisher ? Math.round(ab('m_bounce', 0)) : 0, hit: new Set(), fin: a.finisher,
       });
     }
     burst(p.x + Math.cos(p.face) * p.r * 1.4, p.y + Math.sin(p.face) * p.r * 1.4, p.r * 0.6, R0.color, a.finisher ? 8 : 4, 200);
@@ -1090,7 +1090,19 @@
           burst(s.x, s.y, 8, s.color, 14, 420);
           pushAround({ x: s.x, y: s.y }, s.boom, 3, 520, true, s.hit);
           fx.shake = Math.max(fx.shake, 12 * 0.64);
-          s.dead = true;
+          // 튕기는 구슬: 터진 뒤 가까운 다른 적에게 방향을 바꿔 다시 날아간다
+          let nt = null, nd = 320;
+          if (s.bounce > 0) for (const o of enemies) {
+            const d = Math.hypot(o.x - s.x, o.y - s.y);
+            if (!s.hit.has(o) && activeEnemy(o) && o.z > -1 && d < nd) { nt = o; nd = d; }
+          }
+          if (nt) {
+            s.bounce--;
+            s.ang = Math.atan2(nt.y - s.y, nt.x - s.x);
+            const sp = Math.hypot(s.vx, s.vy);
+            s.vx = Math.cos(s.ang) * sp; s.vy = Math.sin(s.ang) * sp;
+            s.left = Math.max(s.left, nd + 80);
+          } else s.dead = true;
         } else if (!s.pierce) s.dead = true;
       }
       if (s.left <= 0 || Math.hypot(s.x, s.y) > R * 1.6) s.dead = true;
