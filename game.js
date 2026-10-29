@@ -2127,6 +2127,19 @@
       }
     }
     for (const e of enemies) {
+      // 보스 근접공격: 예고 동안 때릴 부채꼴 범위를 바닥에 표시한다 (판정: 거리 range+p.r+8, 정면 ±1.2rad)
+      const b = e.def.behavior;
+      if (e.falling || e.state !== 'windup' || !e.def.boss || b === 'charger' || b === 'jumper' || b === 'shooter') continue;
+      const u = clamp(e.st / (e.def.attack.windup * ab('intimidate', 1)), 0, 1);
+      const rad = e.def.attack.range + player.r + 8;
+      groundArc(e.x, e.y, rad, e.face - 1.2, e.face + 1.2, '#ff3b3b', 0.18 + 0.22 * u);
+      ctx.save();
+      ctx.translate(sx(e.x), sy(e.y, 0)); ctx.scale(1, SQ);
+      ctx.strokeStyle = `rgba(255,70,70,${0.5 + 0.4 * Math.sin(time * 25)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rad * S, e.face - 1.2, e.face + 1.2); ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+    for (const e of enemies) {
       if (e.falling || e.state !== 'windup' || e.def.behavior !== 'charger') continue;
       const len = e.def.attack.range * 1.3;
       ctx.save();
