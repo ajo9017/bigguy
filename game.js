@@ -1194,10 +1194,12 @@
   }
 
   // 특별 스킬: every초마다 저절로 발동한다(p.pt[id] = 쌓인 시간)
+  // 쿨타임 감소 능력(skill_cool): 몇 초마다 발동하는 능력의 대기 시간 배율
+  const coolMul = () => ab('skill_cool', 1);
   function specialReady(p, id, dt) {
     if (!lvl(id)) return false;
     p.pt[id] = (p.pt[id] || 0) + dt;
-    if (p.pt[id] < ABIL[id].every) return false;
+    if (p.pt[id] < ABIL[id].every * coolMul()) return false;
     p.pt[id] = 0;
     return true;
   }
@@ -1304,7 +1306,7 @@
           r: 13, color: '#ff6a3c', shape: 'bomb', left: R * 2, dmg: 6, kb: 520, heavy: true, pierce: false, boom: ab('cannon'), hit: new Set(), special: true,
         });
         Sfx.play('whoosh');
-      } else p.pt.cannon = ABIL.cannon.every - 0.5;
+      } else p.pt.cannon = ABIL.cannon.every * coolMul() - 0.5;
     }
   }
 
@@ -1326,7 +1328,7 @@
 
     if (lvl('roar')) {
       p.roarT += dt;
-      if (p.roarT >= ab('roar')) {
+      if (p.roarT >= ab('roar') * coolMul()) {
         p.roarT = 0;
         pushAround(p, 140, 2, 650, false);
         text(p.x, p.y, p.r * 3, '흐읍!', '#ffffff', 22);
@@ -1334,7 +1336,7 @@
       }
     }
 
-    if (lvl('shield') && p.shieldT < ab('shield')) p.shieldT += dt;
+    if (lvl('shield') && p.shieldT < ab('shield') * coolMul()) p.shieldT += dt;
     updateSpecials(p, dt);
     // 아이템 지속 효과
     for (const k of ['starT', 'hasteT', 'powerT']) if (p[k] > 0) p[k] -= dt;
@@ -1344,7 +1346,7 @@
     const rg = ab('regen', 0);
     if (rg) {
       p.regenT = (p.regenT || 0) + dt;
-      if (p.regenT >= 5) {
+      if (p.regenT >= 5 * coolMul()) {
         p.regenT = 0;
         if (p.pct > 0) {
           p.pct = Math.max(0, p.pct - rg * 5);
@@ -1359,7 +1361,7 @@
       if (p.giant > 0) {
         p.giant -= dt;
         if (p.giant <= 0) p.giantT = 0;
-      } else if ((p.giantT += dt) >= G.every) {
+      } else if ((p.giantT += dt) >= G.every * coolMul()) {
         p.giant = ab('giant');
         fx.shake = Math.max(fx.shake, 16 * 0.8);
         ring(p.x, p.y, p.r, '#ffd84a', p.r * 2);
@@ -1593,7 +1595,7 @@
   function hitPlayer(e, nx, ny, A = e.def.attack) {
     const p = player;
     if (p.inv > 0 || p.starT > 0 || p.falling) return;
-    if (lvl('shield') && p.shieldT >= ab('shield')) {
+    if (lvl('shield') && p.shieldT >= ab('shield') * coolMul()) {
       p.shieldT = 0; p.inv = 0.5;
       burst(p.x, p.y, p.r, '#b8a0ff', 14, 320); ring(p.x, p.y, p.r, '#b8a0ff', p.r * 2.2);
       text(p.x, p.y, p.r * 3, '막았다!', '#d6c8ff', 22);
@@ -2857,18 +2859,19 @@
   // 주기적으로 발동하는 능력의 쿨타임: frac = 충전된 비율, left = 남은 초, active = 발동 중(거대화), ready = 대기 중(방패막)
   function cooldownOf(id) {
     const p = player;
-    if (id === 'roar') return { frac: p.roarT / ab('roar'), left: ab('roar') - p.roarT };
-    if (id === 'regen') return { frac: (p.regenT || 0) / 5, left: 5 - (p.regenT || 0) };
-    if (id === 'shield') return p.shieldT >= ab('shield') ? { frac: 1, left: 0, ready: true } : { frac: p.shieldT / ab('shield'), left: ab('shield') - p.shieldT };
+    const cm = coolMul();
+    if (id === 'roar') return { frac: p.roarT / (ab('roar') * cm), left: ab('roar') * cm - p.roarT };
+    if (id === 'regen') return { frac: (p.regenT || 0) / (5 * cm), left: 5 * cm - (p.regenT || 0) };
+    if (id === 'shield') return p.shieldT >= ab('shield') * cm ? { frac: 1, left: 0, ready: true } : { frac: p.shieldT / (ab('shield') * cm), left: ab('shield') * cm - p.shieldT };
     if (ABIL[id].every && id !== 'giant') {
-      const E = ABIL[id].every, t = p.pt[id] || 0;
+      const E = ABIL[id].every * cm, t = p.pt[id] || 0;
       if (id === 'clone' && p.clone) return { frac: 1, left: p.clone.t, active: true };
       if (id === 'ghost' && p.ghost > 0) return { frac: 1, left: p.ghost, active: true };
       return { frac: t / E, left: E - t };
     }
     if (id === 'giant') {
       if (p.giant > 0) return { frac: 1, left: p.giant, active: true };
-      return { frac: p.giantT / ABIL.giant.every, left: ABIL.giant.every - p.giantT };
+      return { frac: p.giantT / (ABIL.giant.every * cm), left: ABIL.giant.every * cm - p.giantT };
     }
     return null;
   }

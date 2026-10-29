@@ -331,6 +331,7 @@ window.GAME_DATA = {
     { id: 'crit',        icon: '🎲', name: '치명타',      cap: 0.6, lv: [0.15, 0.22, 0.3], desc: v => `공격이 ${Math.round(v * 100)}% 확률로 넉백 x2.5` },
     { id: 'stomp',       icon: '🦶', name: '대지진',      cap: 450, every: 22, lv: [200, 250, 300], desc: v => `22초마다 발을 굴러 반경 ${v} 안의 적을 날림` },
     { id: 'cannon',      icon: '💣', name: '대포',        cap: 220, every: 7, lv: [90, 115, 140], desc: v => `7초마다 가까운 적에게 폭탄을 쏨 (폭발 반경 ${v})` },
+    { id: 'skill_cool', icon: '🕒', name: '쿨타임 감소', cap: 0.4, lv: [0.85, 0.72, 0.6], desc: v => `몇 초마다 발동하는 능력(기합, 방패막, 거대화, 재생, 특별 스킬)의 쿨타임 x${v}` },
     { id: 'revenge',     icon: '⚔️', name: '복수',        cap: 5, lv: [1.5, 2, 2.6], desc: v => `맞은 뒤 4초간 공격 넉백 x${v}` },
     { id: 'regen',       icon: '🌿', name: '재생',       cap: 1.2, lv: [0.1, 0.2, 0.3],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
 
