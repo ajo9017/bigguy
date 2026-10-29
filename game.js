@@ -17,7 +17,7 @@
   const $ = id => document.getElementById(id);
   const ui = {
     title: $('title'), over: $('over'), overStats: $('overStats'), touch: $('touch'), btnAtk: $('btnAtk'), help: $('help'),
-    pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'),
+    pick: $('pick'), pickTitle: $('pickTitle'), cards: $('cards'), btnReroll: $('btnReroll'),
     chat: $('chat'), chatText: $('chatText'), chatHist: $('chatHist'), btnChat: $('btnChat'), chatSend: $('chatSend'), chatMsg: $('chatMsg'),
     ownerToggle: $('ownerToggle'), ownerRow: $('ownerRow'), ownerCode: $('ownerCode'),
     skillInfo: $('skillInfo'), skillCards: $('skillCards'), chars: $('chars'), charList: $('charList'), charNow: $('charNow'),
@@ -129,7 +129,7 @@
   // ---------- 상태 ----------
   const game = {
     state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1,
-    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, choices: [], fireworks: [],
+    chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, rerolls: 1, choices: [], fireworks: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [], meteors = [];
@@ -166,6 +166,7 @@
     if (e.code === 'KeyJ' || e.code === 'KeyK' || e.code === 'Space') pressAttack();
     if (e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') pressDash();
     if (game.picking && /^Digit[1-3]$/.test(e.code)) choose(+e.code.slice(5) - 1);
+    if (game.picking && e.code === 'KeyR') reroll();
     if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && ui.records.classList.contains('hidden') && ui.chars.classList.contains('hidden')) startGame();
   });
   addEventListener('keyup', e => keys.delete(e.code));
@@ -262,9 +263,19 @@
       b.addEventListener('click', () => choose(i));
       ui.cards.appendChild(b);
     });
+    ui.btnReroll.textContent = `🎲 리롤 (${game.rerolls})` + (isTouch ? '' : ' [R]');
+    ui.btnReroll.disabled = game.rerolls <= 0;
     ui.pick.classList.remove('hidden');
     ui.touch.classList.add('hidden');
   }
+
+  // 능력 선택지를 다시 뽑는다 (시작 1회, 10스테이지 클리어마다 1회 충전)
+  function reroll() {
+    if (!game.picking || game.rerolls <= 0) return;
+    game.rerolls--;
+    openPick();
+  }
+  $('btnReroll').addEventListener('click', reroll);
 
   function choose(i) {
     const a = game.choices[i];
@@ -690,7 +701,7 @@
       if (ch.skill === 'second_wind') player.saves++;
     }
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = []; webs = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, choices: [], fireworks: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, rerolls: 1, choices: [], fireworks: [] });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
@@ -848,6 +859,8 @@
           player.pct = Math.max(0, player.pct - heal);
           text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
         }
+        // 10스테이지 클리어마다 리롤 1회 충전
+        if ((game.wave + 1) % 10 === 0) game.rerolls++;
         openPick();
       }
       return;
