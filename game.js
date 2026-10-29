@@ -1683,7 +1683,8 @@
     const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy);
     const charger = e.def.behavior === 'charger';
     const playerGone = p.falling || p.z > 30 || game.state !== 'play';
-    const windup = A.windup * ab('intimidate', 1);
+    // 돌진병은 최소 0.7초 예고하고, 조준은 0.3초까지만 따라간 뒤 멈춰서 피할 틈을 준다
+    const windup = (charger ? Math.max(A.windup, 0.7) : A.windup) * ab('intimidate', 1);
 
     switch (e.state) {
       case 'stun':
@@ -1798,8 +1799,8 @@
         break;
       }
       case 'windup':
-        // 돌진병은 조준을 끝까지 따라오고, 근접형은 전반부까지만 따라온다
-        if (charger || e.st < windup * 0.5) e.face = Math.atan2(dy, dx);
+        // 돌진병은 조준을 잠깐만 따라오고 멈춘 뒤 돌진한다. 근접형은 전반부까지만 따라온다
+        if (charger ? e.st < 0.3 : e.st < windup * 0.5) e.face = Math.atan2(dy, dx);
         if (e.st >= windup) {
           e.state = 'attack'; e.st = 0; e.didHit = false;
           if (e.def.behavior === 'jumper') {
