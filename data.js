@@ -332,7 +332,7 @@ window.GAME_DATA = {
     { id: 'stomp',       icon: '🦶', name: '대지진',      cap: 450, every: 22, lv: [200, 250, 300], desc: v => `22초마다 발을 굴러 반경 ${v} 안의 적을 날림` },
     { id: 'cannon',      icon: '💣', name: '대포',        cap: 220, every: 7, lv: [90, 115, 140], desc: v => `7초마다 가까운 적에게 폭탄을 쏨 (폭발 반경 ${v})` },
     { id: 'revenge',     icon: '⚔️', name: '복수',        cap: 5, lv: [1.5, 2, 2.6], desc: v => `맞은 뒤 4초간 공격 넉백 x${v}` },
-    { id: 'regen',       icon: '🌿', name: '재생',       cap: 0.6, lv: [0.05, 0.1, 0.15],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
+    { id: 'regen',       icon: '🌿', name: '재생',       cap: 1.2, lv: [0.1, 0.2, 0.3],     desc: v => `5초마다 체력회복 +${+(v * 5).toFixed(2)}%` },
 
     // 캐릭터 전용 능력(only = 캐릭터 id): 그 캐릭터를 고른 판에서만 선택지에 나온다. 캐릭터마다 5종, 최대 Lv6
     // 빅가이
