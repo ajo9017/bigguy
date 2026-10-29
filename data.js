@@ -296,7 +296,7 @@ window.GAME_DATA = {
     { id: 'bounty',      icon: '💰', name: '현상금',      lv: [1.25, 1.5, 2.0],  desc: v => `낙하 처치 점수 x${v}` },
     { id: 'intimidate',  icon: '😠', name: '위압감',      cap: 2.5, lv: [1.2, 1.4, 1.6],   desc: v => `적의 공격 준비 시간 x${v}` },
     { id: 'roar',        icon: '📣', name: '기합',        cap: 2, lv: [8, 6, 4.5],       desc: v => `${v}초마다 기합으로 주변 적을 밀어냄` },
-    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', cap: 25, lv: [3, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
+    { id: 'adrenaline',  icon: '❤️‍🔥', name: '아드레날린', cap: 25, lv: [2, 6, 10],        desc: v => `적이 떨어질 때마다 체력회복 +${v}%` },
     { id: 'second_wind', icon: '🪽', name: '낙법',        max: 6, grow: 1, lv: [1, 2, 3],         desc: v => `떨어져도 기둥으로 복귀 (총 ${v}회)` },
     // every초마다 lv초 동안 몸집이 scale배: 사거리, 넉백, 몸무게도 같은 배율로 커진다
     { id: 'giant',       icon: '🗿', name: '거대화',      max: 5, cap: 13, lv: [4, 6, 8], every: 15, scale: 1.6, desc: v => `15초마다 ${v}초간 거대화 (크기·힘·무게 x1.6)` },
