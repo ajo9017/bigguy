@@ -35,6 +35,9 @@
   #btnDash { width: 76px; height: 76px; font-size: 16px; background: rgba(90, 190, 255, .3); position: relative; overflow: hidden; }
   #btnDash.cool { color: rgba(255, 255, 255, .55); }
   .tbtn.on { background: rgba(255, 255, 255, .4); }
+  /* PC: 공격은 키보드로 하므로 대시 버튼(쿨타임 표시 겸용)만 보인다 */
+  #touch.pc #btnAtk { display: none; }
+  #touch.pc #btnDash { width: 84px; height: 84px; font-size: 15px; }
 
   /* 개선 요청 버튼 */
   #btnChat { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));

@@ -196,6 +196,7 @@
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) ui.btnAtk.addEventListener(t, () => { btnAtkHeld = false; ui.btnAtk.classList.remove('on'); });
 
   const btnDash = $('btnDash');
+  if (!isTouch) ui.touch.classList.add('pc');
   btnDash.addEventListener('pointerdown', e => { e.preventDefault(); pressDash(); btnDash.classList.add('on'); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) btnDash.addEventListener(t, () => btnDash.classList.remove('on'));
 
@@ -286,7 +287,7 @@
     if (a.id === 'recovery') player.pct = Math.max(0, player.pct - ab('recovery'));
     game.picking = false;
     ui.pick.classList.add('hidden');
-    ui.touch.classList.toggle('hidden', !isTouch);
+    ui.touch.classList.remove('hidden');
     Sfx.play('pick');
     startWave(game.wave + 1);
   }
@@ -711,7 +712,7 @@
     resetGame();
     game.state = 'play';
     for (const el of [ui.title, ui.over, ui.pick, ui.records, ui.chars]) el.classList.add('hidden');
-    ui.touch.classList.toggle('hidden', !isTouch);
+    ui.touch.classList.remove('hidden');
     startWave(0);
   }
 
@@ -2939,20 +2940,16 @@
     ctx.fillText(`STAGE ${game.wave + 1}`, 16, 14);
     const left = game.queue.length + enemies.filter(e => !e.falling).length;
     ctx.textAlign = 'right';
-    ctx.fillText(`남은 적 ${left}`, W - 16, 14);
+    ctx.fillText(`남은 적 ${left}`, W - 16, 60);
     ctx.textAlign = 'left';
     ctx.font = '600 15px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText(`점수 ${game.score}   처치 ${game.kills}`, 16, 38);
 
-    // 대시 쿨타임: 터치 버튼 글자와 화면 왼쪽 위 게이지
-    const dFull = D.player.dash.cooldown * ab('dash_cool', 1) * (player.ch.dashCool || 1), dLeft = Math.max(0, player.dashCd);
-    const dTxt = dLeft > 0 ? dLeft.toFixed(1) : '대시';
+    // 대시 쿨타임: 대시 버튼 글자 (PC에서도 버튼을 보여주고 단축키를 함께 적는다)
+    const dLeft = Math.max(0, player.dashCd);
+    const dTxt = dLeft > 0 ? dLeft.toFixed(1) : (isTouch ? '대시' : '대시 L');
     if (btnDash.textContent !== dTxt) { btnDash.textContent = dTxt; btnDash.classList.toggle('cool', dLeft > 0); }
-    if (!isTouch) {
-      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(16, 58, 90, 6);
-      ctx.fillStyle = dLeft > 0 ? '#6aa8d6' : '#8fe3ff'; ctx.fillRect(16, 58, 90 * (1 - Math.min(1, dLeft / dFull)), 6);
-    }
 
     // 보유 능력 아이콘. 몇 초마다 발동하는 능력은 남은 쿨타임을 시계 모양으로 덮고 초를 적는다
     let ix = 16, iy = isTouch ? 62 : 70;
