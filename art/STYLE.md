@@ -61,4 +61,7 @@ Crisp pixels, no anti-aliasing, #181425 outline, solid #FF00FF background.
 
 ## 화풍 유지 요령
 - 새 그림을 요청할 때마다 **마음에 든 기준 그림(1번 결과)을 첨부**하고 "same style as attached"를 넣는다
-- AI 결과는 보정 도구로 정확한 격자와 ENDESGA 32 팔레트로 맞춘 뒤 `art/` 아래에 저장한다
+- AI 결과는 **도트 보정기**로 정확한 격자와 ENDESGA 32 팔레트로 맞춘 뒤 `art/` 아래에 저장한다
+  - 주소: https://ajo9017.github.io/bigguy/tools/pixelizer.html (코드: `tools/pixelizer.html`, 핸드폰에서도 동작)
+  - 원본 점 크기를 자동으로 찾는다(19.7px 같은 소수점도 가능). 이상하면 슬라이더로 직접 맞춘다
+  - 동작 시트는 "프레임 수"를 맞추면 칸마다 따로 정렬해서 한 줄 시트로 저장한다

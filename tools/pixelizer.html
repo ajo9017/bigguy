@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BIG GUY 도트 보정기</title>
+<style>
+  :root { --bg: #12132a; --panel: #1d1f38; --line: #3d4175; --text: #fff; --dim: rgba(255,255,255,.65); --accent: #ffd84a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { margin: 0; font-size: 24px; color: var(--accent); }
+  h3 { margin: 0 0 8px; font-size: 15px; }
+  p { margin: 4px 0 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+  .panel { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 14px; }
+  .drop { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 90px; padding: 14px;
+    border: 2px dashed var(--line); border-radius: 12px; color: var(--dim); cursor: pointer; line-height: 1.5; }
+  .drop.over { border-color: var(--accent); color: var(--accent); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 16px; margin-top: 12px; font-size: 14px; }
+  .opts label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  select, input[type=number], input[type=text] { background: var(--bg); color: var(--text); border: 2px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 15px; font-family: inherit; }
+  input[type=number] { width: 70px; }
+  input[type=range] { flex: 1; min-width: 100px; }
+  button { font-family: inherit; font-size: 15px; font-weight: 800; padding: 9px 16px; border-radius: 10px; border: 0; cursor: pointer; background: var(--accent); color: #2a1a0a; }
+  button.ghost { background: transparent; color: var(--text); border: 2px solid var(--line); font-weight: 700; padding: 5px 10px; font-size: 13px; }
+  button:disabled { opacity: .4; cursor: default; }
+  .results { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .results { grid-template-columns: 1fr; } }
+  .view { background: repeating-conic-gradient(#2a2c4a 0 25%, #222440 0 50%) 0 0 / 16px 16px; border-radius: 10px; min-height: 160px;
+    display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
+  .view img { max-width: 100%; max-height: 360px; image-rendering: pixelated; }
+  #zoom { image-rendering: pixelated; max-width: 100%; }
+  .info { margin-top: 8px; font-size: 13px; color: var(--dim); line-height: 1.6; }
+  .info b { color: var(--text); }
+  .warn { color: #ffb36b; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🟨 도트 보정기</h1>
+    <p>GPT 같은 AI로 그린 "가짜 도트"를 정확한 격자, ENDESGA 32 팔레트, 투명 배경의 진짜 도트 PNG로 바꿔요. 규칙은 <code>art/STYLE.md</code>를 따릅니다. 그림은 이 기기 안에서만 처리되고 어디로도 전송되지 않아요.</p>
+  </header>
+
+  <section class="panel">
+    <label class="drop" id="drop">그림을 여기에 끌어놓거나 눌러서 고르세요<br>(PC에서는 Ctrl+V로 붙여넣기도 돼요)
+      <input type="file" id="file" accept="image/*" hidden>
+    </label>
+    <div class="opts">
+      <label>종류
+        <select id="preset">
+          <option value="32">일반 적 32×32</option>
+          <option value="48" selected>주인공·덩치 48×48</option>
+          <option value="96">보스 96×96</option>
+          <option value="custom">직접 입력</option>
+        </select>
+      </label>
+      <label id="customWrap" class="hidden">가로 <input type="number" id="tw" value="48" min="4" max="256"> 세로 <input type="number" id="th" value="48" min="4" max="256"></label>
+      <label>프레임 수 (동작 시트) <input type="number" id="frames" value="1" min="1" max="16"></label>
+      <label>원본 점 크기 <input type="range" id="psize" min="1" max="64" value="1"> <span id="pval">자동</span>
+        <button class="ghost" id="pauto">자동</button></label>
+      <label>배경 지우기 강도 <input type="range" id="tol" min="10" max="250" value="110"> <span id="tolv">110</span></label>
+      <label><input type="checkbox" id="usePal" checked> ENDESGA 32 팔레트로 맞추기</label>
+      <label><input type="checkbox" id="bottom" checked> 발을 바닥에 맞추기 (아래 정렬)</label>
+    </div>
+  </section>
+
+  <section class="results">
+    <div class="panel"><h3>원본</h3><div class="view"><img id="srcView" alt=""></div></div>
+    <div class="panel"><h3>결과 (확대해서 보기)</h3><div class="view"><canvas id="zoom" width="1" height="1"></canvas></div><div class="info" id="info">그림을 넣으면 여기에 결과가 나와요.</div></div>
+  </section>
+
+  <div class="actions">
+    <label>파일 이름 <input type="text" id="fname" value="hero"></label>
+    <button id="dl" disabled>PNG 저장 (실제 크기)</button>
+    <button class="ghost" id="dl4" disabled>확인용 8배 PNG</button>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  // ENDESGA 32 (https://lospec.com/palette-list/endesga-32)
+  const PALETTE = ['be4a2f', 'd77643', 'ead4aa', 'e4a672', 'b86f50', '733e39', '3e2731', 'a22633',
+    'e43b44', 'f77622', 'feae34', 'fee761', '63c74d', '3e8948', '265c42', '193c3e',
+    '124e89', '0099db', '2ce8f5', 'ffffff', 'c0cbdc', '8b9bb4', '5a6988', '3a4466',
+    '262b44', '181425', 'ff0044', '68386c', 'b55088', 'f6757a', 'e8b796', 'c28569']
+    .map(h => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]);
+
+  // 사람 눈에 가까운 색 거리 (redmean)
+  function dist(r1, g1, b1, r2, g2, b2) {
+    const rm = (r1 + r2) / 2, dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+    return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
+  }
+
+  const palCache = new Map();
+  function nearestPal(r, g, b) {
+    const key = (r >> 2) << 12 | (g >> 2) << 6 | (b >> 2);
+    let idx = palCache.get(key);
+    if (idx === undefined) {
+      let best = Infinity;
+      PALETTE.forEach((c, i) => { const d = dist(r, g, b, c[0], c[1], c[2]); if (d < best) { best = d; idx = i; } });
+      palCache.set(key, idx);
+    }
+    return idx;
+  }
+
+  // 네 모서리에서 가장 흔한 색을 배경색으로 본다 (보통 마젠타)
+  function bgColor(img) {
+    const { width: w, height: h, data } = img;
+    const pts = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1], [w >> 1, 0], [0, h >> 1]];
+    const cols = pts.map(([x, y]) => { const i = (y * w + x) * 4; return [data[i], data[i + 1], data[i + 2], data[i + 3]]; });
+    let best = cols[0], bestN = -1;
+    for (const c of cols) {
+      const n = cols.filter(o => dist(c[0], c[1], c[2], o[0], o[1], o[2]) < 40).length;
+      if (n > bestN) { bestN = n; best = c; }
+    }
+    return best;
+  }
+
+  function makeMask(img, tol) {
+    const { width: w, height: h, data } = img;
+    const bg = bgColor(img);
+    const mask = new Uint8Array(w * h);
+    for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+      if (data[i + 3] < 128) continue;
+      if (bg[3] >= 128 && dist(data[i], data[i + 1], data[i + 2], bg[0], bg[1], bg[2]) < tol) continue;
+      mask[p] = 1;
+    }
+    return mask;
+  }
+
+  function bbox(mask, w, x0, x1, h) {
+    let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let x = x0; x < x1; x++) {
+      if (!mask[y * w + x]) continue;
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
+  // 같은 색이 이어지는 길이(run)들이 가장 잘 나눠떨어지는 가장 큰 점 크기를 찾는다
+  function detectPixelSize(img, mask, box) {
+    const { width: w, data } = img;
+    const runs = [];
+    // 지금까지 이어진 구간의 평균색과 비교해서, 점마다 조금씩 다른 잡티가 있어도 같은 칸으로 본다
+    const scan = (len, at) => {
+      let start = 0, sr = 0, sg = 0, sb = 0, n = 0;
+      const begin = k => { const q = at(k) * 4; start = k; sr = data[q]; sg = data[q + 1]; sb = data[q + 2]; n = 1; };
+      begin(0);
+      for (let k = 1; k <= len; k++) {
+        const b = k < len ? at(k) : -1;
+        const same = b >= 0 && mask[at(start)] && mask[b] &&
+          dist(sr / n, sg / n, sb / n, data[b * 4], data[b * 4 + 1], data[b * 4 + 2]) < 70;
+        if (same) { sr += data[b * 4]; sg += data[b * 4 + 1]; sb += data[b * 4 + 2]; n++; continue; }
+        if (mask[at(start)] && k - start >= 2) runs.push(k - start);
+        if (k < len) begin(k);
+      }
+    };
+    const step = Math.max(1, Math.floor(Math.min(box.w, box.h) / 120));
+    for (let y = box.y; y < box.y + box.h; y += step) scan(box.w, k => y * w + box.x + k);
+    for (let x = box.x; x < box.x + box.w; x += step) scan(box.h, k => (box.y + k) * w + x);
+    if (runs.length < 10) return 1;
+    // AI 그림은 점 하나가 19.7px처럼 정수가 아닌 경우가 많아서 0.05px 단위로 찾는다.
+    // 구간 길이가 p의 배수에 가까울수록 오차가 작고, 오차가 충분히 작은 것 중 가장 큰 p를 고른다
+    let bestP = 1;
+    for (let p = 2; p <= 64; p += 0.05) {
+      let err = 0, tot = 0;
+      for (const len of runs) {
+        const n = Math.max(1, Math.round(len / p));
+        err += len * Math.abs(len - n * p) / p;
+        tot += len;
+      }
+      // 경계가 1~2px 흐려지는 건 점 크기와 상관없이 생기므로, 작은 점일수록 비율 허용치를 넓힌다
+      if (err / tot < Math.max(0.1, 1.5 / p)) bestP = p;
+    }
+    return Math.round(bestP * 100) / 100;
+  }
+
+  // 프레임 나누기: 그림이 있는 세로줄 덩어리를 찾고, 개수가 안 맞으면 같은 폭으로 나눈다
+  function splitFrames(mask, w, h, frames) {
+    if (frames <= 1) return [[0, w]];
+    const used = new Uint8Array(w);
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (mask[y * w + x]) { used[x] = 1; break; }
+    let segs = [];
+    for (let x = 0; x < w; x++) {
+      if (!used[x]) continue;
+      const s = x;
+      while (x < w && used[x]) x++;
+      segs.push([s, x]);
+    }
+    while (segs.length > frames) {
+      let gi = 0, gap = Infinity;
+      for (let i = 0; i < segs.length - 1; i++) { const g = segs[i + 1][0] - segs[i][1]; if (g < gap) { gap = g; gi = i; } }
+      segs.splice(gi, 2, [segs[gi][0], segs[gi + 1][1]]);
+    }
+    if (segs.length === frames) return segs;
+    const all = bbox(mask, w, 0, w, h);
+    if (!all) return [[0, w]];
+    return Array.from({ length: frames }, (_, i) => [
+      Math.floor(all.x + all.w * i / frames), Math.floor(all.x + all.w * (i + 1) / frames)]);
+  }
+
+  // 한 프레임을 점 크기 p 기준 원래 해상도로 되돌린다. 칸마다 가운데 60%에서 가장 많은 색을 고른다
+  function sampleGrid(img, mask, box, p, usePal) {
+    const { width: w, data } = img;
+    const nW = Math.max(1, Math.round(box.w / p)), nH = Math.max(1, Math.round(box.h / p));
+    const cw = box.w / nW, ch = box.h / nH;
+    const out = new Uint8ClampedArray(nW * nH * 4);
+    for (let j = 0; j < nH; j++) for (let i = 0; i < nW; i++) {
+      const x0 = Math.floor(box.x + (i + 0.2) * cw), x1 = Math.max(x0 + 1, Math.ceil(box.x + (i + 0.8) * cw));
+      const y0 = Math.floor(box.y + (j + 0.2) * ch), y1 = Math.max(y0 + 1, Math.ceil(box.y + (j + 0.8) * ch));
+      const counts = new Map();
+      let opaque = 0, total = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        total++;
+        const q = y * w + x;
+        if (!mask[q]) continue;
+        opaque++;
+        const r = data[q * 4], g = data[q * 4 + 1], b = data[q * 4 + 2];
+        const key = usePal ? nearestPal(r, g, b) : (r >> 4) << 8 | (g >> 4) << 4 | (b >> 4);
+        const c = counts.get(key);
+        if (c) { c.n++; c.r += r; c.g += g; c.b += b; } else counts.set(key, { n: 1, r, g, b });
+      }
+      if (opaque * 2 < total) continue;
+      let best = null, bk = 0;
+      for (const [k, c] of counts) if (!best || c.n > best.n) { best = c; bk = k; }
+      const o = (j * nW + i) * 4;
+      const col = usePal ? PALETTE[bk] : [best.r / best.n, best.g / best.n, best.b / best.n];
+      out[o] = col[0]; out[o + 1] = col[1]; out[o + 2] = col[2]; out[o + 3] = 255;
+    }
+    return { w: nW, h: nH, data: out };
+  }
+
+  function process(img, opts) {
+    const { width: w, height: h } = img;
+    const mask = makeMask(img, opts.tol);
+    const whole = bbox(mask, w, 0, w, h);
+    if (!whole) return { error: '그림을 찾지 못했어요. 배경 지우기 강도를 낮춰 보세요' };
+    const p = opts.p || detectPixelSize(img, mask, whole);
+    const ranges = splitFrames(mask, w, h, opts.frames);
+    const sheet = new ImageData(opts.tw * ranges.length, opts.th);
+    const notes = [];
+    let shrunk = false;
+    const colors = new Set();
+    ranges.forEach(([fx0, fx1], f) => {
+      const box = bbox(mask, w, fx0, fx1, h);
+      if (!box) return;
+      let g = sampleGrid(img, mask, box, p, opts.usePal);
+      if (f === 0) notes.push(`원래 해상도 <b>${g.w}×${g.h}</b>`);
+      // 목표 칸보다 크면 비율을 지키며 가장 가까운 점으로 줄인다
+      if (g.w > opts.tw || g.h > opts.th) {
+        shrunk = true;
+        const s = Math.min(opts.tw / g.w, opts.th / g.h);
+        const sw = Math.max(1, Math.floor(g.w * s)), shh = Math.max(1, Math.floor(g.h * s));
+        const d = new Uint8ClampedArray(sw * shh * 4);
+        for (let y = 0; y < shh; y++) for (let x = 0; x < sw; x++) {
+          const sxp = Math.min(g.w - 1, Math.floor((x + 0.5) / s)), syp = Math.min(g.h - 1, Math.floor((y + 0.5) / s));
+          d.set(g.data.subarray((syp * g.w + sxp) * 4, (syp * g.w + sxp) * 4 + 4), (y * sw + x) * 4);
+        }
+        g = { w: sw, h: shh, data: d };
+      }
+      const ox = f * opts.tw + Math.floor((opts.tw - g.w) / 2);
+      const oy = opts.bottom ? opts.th - g.h : Math.floor((opts.th - g.h) / 2);
+      for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+        const s = (y * g.w + x) * 4;
+        if (!g.data[s + 3]) continue;
+        const t = ((oy + y) * sheet.width + ox + x) * 4;
+        sheet.data.set(g.data.subarray(s, s + 4), t);
+        colors.add(g.data[s] << 16 | g.data[s + 1] << 8 | g.data[s + 2]);
+      }
+    });
+    notes.unshift(`원본 점 크기 <b>${p}px</b>${opts.p ? ' (직접 지정)' : ' (자동 감지)'}`);
+    notes.push(`사용한 색 <b>${colors.size}</b>개`, `결과 크기 <b>${sheet.width}×${sheet.height}</b>`);
+    if (shrunk) notes.push('<span class="warn">원본이 목표 칸보다 커서 줄였어요. 디테일이 뭉개졌다면 점 크기를 키우거나 더 큰 칸을 고르세요</span>');
+    if (p === 1) notes.push('<span class="warn">점 크기를 감지하지 못했어요. 슬라이더로 직접 맞춰 주세요</span>');
+    return { sheet, p, notes };
+  }
+
+  // ---------- 화면 ----------
+  const $ = id => document.getElementById(id);
+  let srcImg = null, result = null, manualP = 0;
+
+  function opts() {
+    const pre = $('preset').value;
+    const tw = pre === 'custom' ? +$('tw').value : +pre;
+    const th = pre === 'custom' ? +$('th').value : +pre;
+    return {
+      tw: Math.max(4, Math.min(256, tw || 48)), th: Math.max(4, Math.min(256, th || 48)),
+      frames: Math.max(1, Math.min(16, +$('frames').value || 1)), p: manualP, tol: +$('tol').value,
+      usePal: $('usePal').checked, bottom: $('bottom').checked,
+    };
+  }
+
+  function render() {
+    if (!srcImg) return;
+    const out = process(srcImg, opts());
+    const info = $('info');
+    if (out.error) { info.innerHTML = `<span class="warn">${out.error}</span>`; result = null; $('dl').disabled = $('dl4').disabled = true; return; }
+    result = out.sheet;
+    if (!manualP) { $('psize').value = out.p; $('pval').textContent = `자동 (${out.p})`; }
+    const z = Math.max(1, Math.floor(Math.min(640, document.body.clientWidth - 80) / result.width));
+    const c = $('zoom');
+    c.width = result.width * z; c.height = result.height * z;
+    const tmp = document.createElement('canvas');
+    tmp.width = result.width; tmp.height = result.height;
+    tmp.getContext('2d').putImageData(result, 0, 0);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(tmp, 0, 0, c.width, c.height);
+    // 프레임 경계선
+    ctx.strokeStyle = 'rgba(255,216,74,.5)';
+    const fw = opts().tw * z;
+    for (let x = fw; x < c.width; x += fw) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, c.height); ctx.stroke(); }
+    info.innerHTML = out.notes.join(' · ');
+    $('dl').disabled = $('dl4').disabled = false;
+  }
+
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(im, 0, 0);
+      srcImg = ctx.getImageData(0, 0, c.width, c.height);
+      $('srcView').src = url;
+      manualP = 0;
+      render();
+    };
+    im.src = url;
+  }
+
+  function download(scale) {
+    if (!result) return;
+    const c = document.createElement('canvas');
+    c.width = result.width * scale; c.height = result.height * scale;
+    const tmp = document.createElement('canvas');
+    tmp.width = result.width; tmp.height = result.height;
+    tmp.getContext('2d').putImageData(result, 0, 0);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tmp, 0, 0, c.width, c.height);
+    c.toBlob(blob => {
+      const a = document.createElement('a');
+      const name = ($('fname').value.trim() || 'sprite').replace(/[^\w가-힣-]/g, '_');
+      a.href = URL.createObjectURL(blob);
+      a.download = scale > 1 ? `${name}@${scale}x.png` : `${name}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  }
+
+  const drop = $('drop');
+  $('file').addEventListener('change', e => loadFile(e.target.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); loadFile(e.dataTransfer.files[0]); });
+  addEventListener('paste', e => {
+    for (const it of e.clipboardData.items) if (it.type.startsWith('image/')) { loadFile(it.getAsFile()); break; }
+  });
+  $('preset').addEventListener('change', () => { $('customWrap').classList.toggle('hidden', $('preset').value !== 'custom'); render(); });
+  for (const id of ['tw', 'th', 'frames', 'usePal', 'bottom']) $(id).addEventListener('change', render);
+  $('psize').addEventListener('input', () => { manualP = +$('psize').value; $('pval').textContent = `${manualP}px`; render(); });
+  $('pauto').addEventListener('click', () => { manualP = 0; render(); });
+  $('tol').addEventListener('input', () => { $('tolv').textContent = $('tol').value; render(); });
+  $('dl').addEventListener('click', () => download(1));
+  $('dl4').addEventListener('click', () => download(8));
+
+  // 테스트용
+  window.__pix = { process, PALETTE, setImage(img) { srcImg = img; manualP = 0; render(); } };
+})();
+</script>
+</body>
+</html>
