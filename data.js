@@ -174,7 +174,7 @@ window.GAME_DATA = {
       attack: { range: 46, windup: 0.5, recover: 0.8, damage: 11, force: 700 },
     },
 
-    // 보스: 5웨이브마다 하나씩. 웨이브에 boss_random을 적으면 stages([처음, 끝] 스테이지)에 맞는 보스 중 무작위로 나온다. boss: true
+    // 보스: 5웨이브마다 하나씩, 스테이지별로 고정된 순서(stages[].bosses)로 나온다. boss: true. (stages 값은 예전 무작위 보스용으로 지금은 쓰지 않는다)
     // slam = 일정 시간마다 내려찍기(범위 안 땅 위의 플레이어를 날림), summon = 일정 시간마다 부하 소환
     boss_king: {
       stages: [5, 15],
@@ -229,7 +229,7 @@ window.GAME_DATA = {
       attack: { range: 330, windup: 0.7, dashSpeed: 900, dashTime: 0.7, recover: 0.8, damage: 26, force: 1300 },
       zone: { every: 1.4, radius: 100, windup: 1.0, damage: 20, force: 1150, count: 3 },
     },
-    // 상급 보스: 후반 스테이지에만 나오는 더 어려운 보스
+    // 상급 보스: 후반 웨이브에 나오는 더 어려운 보스
     boss_titan: {
       stages: [20, 30],
       name: '강철 거신', color: '#5d6b7a', radius: 60, mass: 16, speed: 75, behavior: 'walker', score: 8000, boss: true, teeth: true, crown: true,
@@ -268,7 +268,7 @@ window.GAME_DATA = {
     },
   },
 
-  // 스테이지 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
+  // 웨이브 클리어 때 3개 중 하나를 고르는 특수능력. 최대 레벨은 abilityMaxLevel(능력별 max로 덮어쓸 수 있음).
   // lv[n]은 레벨 n+1일 때의 값이고, desc는 그 값을 받아 설명을 만든다. 효과 구현은 game.js에서 id로 찾는다.
   // lv 배열 다음 레벨부터는 마지막 한 단계 변화량 x abilityGrow(능력별 grow)씩 계속 변하고, cap에서 멈춘다(넘으면 안 되는 한계값)
   // melee: true = 근접 공격에서만 효과가 있는 능력(원거리 캐릭터 선택지에서 제외)
@@ -287,7 +287,7 @@ window.GAME_DATA = {
     { id: 'rapid',       icon: '⚡', name: '연타',        cap: 2.5, lv: [1.15, 1.3, 1.45], desc: v => `공격 속도 x${v}` },
     { id: 'tough',       icon: '🛡️', name: '맷집',        cap: 0.3, lv: [0.85, 0.72, 0.6], desc: v => `받는 피해% x${v}` },
     { id: 'grip',        icon: '🦶', name: '발끝 버티기', cap: 0.25, lv: [0.8, 0.65, 0.5],  desc: v => `가장자리 근처에서 받는 넉백 x${v}` },
-    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `스테이지 클리어 때마다 피해% -${v} (선택 즉시도 회복)` },
+    { id: 'recovery',    icon: '🍙', name: '주먹밥',      cap: 45, lv: [7, 12, 17],       desc: v => `웨이브 클리어 때마다 피해% -${v} (선택 즉시도 회복)` },
     { id: 'cyclone', melee: true, not: ['general'],     icon: '🌪️', name: '회오리 펀치', cap: 2, lv: [1, 1.15, 1.3],    desc: v => v > 1 ? `3타째가 360° 회전 공격 (범위 x${v})` : '3타째가 360° 회전 공격' },
     { id: 'shockwave', melee: true,   icon: '💥', name: '충격파',      cap: 320, lv: [120, 150, 185],   desc: v => `3타째 끝에 반경 ${v} 충격파` },
     { id: 'counter',     icon: '🔥', name: '분노 반격',   lv: [500, 700, 900],   desc: v => `맞으면 주변 적을 날려버림 (힘 ${v})` },
@@ -406,92 +406,211 @@ window.GAME_DATA = {
     { only: 'chef', id: 'c_sear', max: 6, cap: 3.5, icon: '🥩', name: '시어링', lv: [1.3, 1.6, 1.9], desc: v => `불타는 적에게 3타째를 치면 넉백 x${v}` },
   ],
 
-  // 캐릭터 10종(근접 7 + 원거리 3). unlock = 해금 업적(없으면 처음부터 사용 가능): stat(bestWave 최고 웨이브, bestScore 최고 점수, totalKills 누적 처치, plays 플레이 횟수) 값이 need 이상이면 해금. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
+  // 캐릭터 10종(근접 7 + 원거리 3). 빅가이 말고는 성장 트리(tree)의 캐릭터 노드를 사야 쓸 수 있다. skill = 시작할 때 Lv1로 가지고 시작하는 능력 id (abilities 참고).
   // attack = 기본 공격 수치를 덮어씀(player.attack 기준), mass/speed = 몸무게/이동속도 배율.
   // look = 외형(skin 피부, coat 겉옷, trim 깃/띠, shorts 바지, sock 양말, hair 머리색, band 머리띠, glove 주먹 색, mark 등 글자)
   //   + 장식: hat('toque' 요리사모, 'pirate' 해적모자, 'topknot' 상투, 'ears' 뾰족귀, 'wizard' 마법사 모자, 'helmet' 철모, 'hood' 후드), mask(복면), beard(수염), fangs(송곳니), cape(망토), bald(민머리), shades(선글라스)
   characters: [
     { id: 'bigguy', name: '빅가이', skill: null, desc: '축제를 사랑하는 근육질 아저씨. 균형 잡힌 기본 캐릭터.',
       look: {} },
-    { id: 'ninja', name: '쾌속 닌자', unlock: { stat: 'plays', need: 3, text: '3판 플레이' }, skill: 'quick_feet', speed: 1.05, dashCool: 0.6, desc: '그림자처럼 빠르다. 대시 쿨타임이 짧고, 3타째는 번개처럼 파고들어 벤다.',
+    { id: 'ninja', name: '쾌속 닌자', skill: 'quick_feet', speed: 1.05, dashCool: 0.6, desc: '그림자처럼 빠르다. 대시 쿨타임이 짧고, 3타째는 번개처럼 파고들어 벤다.',
       attack: { range: 70, damage: 5, knockback: 360, duration: 0.19, active: [0.03, 0.1], comboWindow: 0.4, finisherMul: 2.3, lunge: 100, finLunge: 2.2 },
       look: { skin: '#d9a273', coat: '#2b2d42', trim: '#d62839', shorts: '#1c1d2b', sock: '#d62839', band: '#d62839', mask: '#2b2d42', mark: '影' } },
-    { id: 'sumo', name: '스모 장사', unlock: { stat: 'bestWave', need: 5, text: '웨이브 5 도달' }, skill: 'heavy', mass: 1.25, speed: 0.9, desc: '산 같은 몸. 느리지만 한 방이 묵직하고, 3타째는 발을 굴러 주변을 밀어낸다.',
+    { id: 'sumo', name: '스모 장사', skill: 'heavy', mass: 1.25, speed: 0.9, desc: '산 같은 몸. 느리지만 한 방이 묵직하고, 3타째는 발을 굴러 주변을 밀어낸다.',
       attack: { range: 72, arc: 130, damage: 8, knockback: 540, duration: 0.34, active: [0.1, 0.2], comboWindow: 0.5, finisherMul: 1.8, lunge: 40, finQuake: 130 },
       look: { skin: '#e0b08a', coat: '#e8e0cc', trim: '#7a5230', shorts: '#2f6fb3', sock: '#e0b08a', hair: '#17171c', band: '#e8e0cc', hat: 'topknot', mark: '力' } },
-    { id: 'boxer', name: '복서', unlock: { stat: 'totalKills', need: 60, text: '누적 60마리 처치' }, skill: 'rapid', desc: '번개 같은 잽. 잽은 가볍게 스쳐 경직이 짧고, 3타째 훅은 아주 강하다.',
+    { id: 'boxer', name: '복서', skill: 'rapid', desc: '번개 같은 잽. 잽은 가볍게 스쳐 경직이 짧고, 3타째 훅은 아주 강하다.',
       attack: { range: 74, arc: 80, damage: 4, knockback: 330, duration: 0.15, active: [0.03, 0.09], comboWindow: 0.35, finisherMul: 2.8, lunge: 60, stunMul: 0.8 },
       look: { skin: '#b9774c', coat: '#c1121f', trim: '#ffd84a', shorts: '#c1121f', sock: '#ffffff', band: '#ffd84a', glove: '#e63946', mark: '拳' } },
-    { id: 'general', name: '창술 장군', unlock: { stat: 'bestWave', need: 8, text: '웨이브 8 도달' }, skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁지만 3타째 돌려찌르기는 더 멀리 닿는다.',
+    { id: 'general', name: '창술 장군', skill: 'long_reach', desc: '긴 창을 휘두르듯 멀리서 찌른다. 범위는 좁지만 3타째 돌려찌르기는 더 멀리 닿는다.',
       attack: { range: 109, growReach: 0.25, arc: 36, damage: 6, knockback: 400, duration: 0.3, active: [0.07, 0.17], comboWindow: 0.45, finisherMul: 2.0, lunge: 30, finRange: 1.35 },
       look: { skin: '#c98a5c', coat: '#2a6f4e', trim: '#ffd84a', shorts: '#244c3a', sock: '#ffd84a', hair: '#3b2213', band: '#ffd84a', beard: '#3b2213', mark: '將' } },
-    { id: 'wrestler', name: '프로 레슬러', unlock: { stat: 'bestScore', need: 3000, text: '최고 점수 3000' }, skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리고, 3타째는 온몸을 던져 더 강하게 날린다.',
+    { id: 'wrestler', name: '프로 레슬러', skill: 'lunge', desc: '몸통 박치기! 크게 돌진하며 때리고, 3타째는 온몸을 던져 더 강하게 날린다.',
       attack: { range: 76, arc: 100, damage: 7, knockback: 470, duration: 0.26, active: [0.05, 0.15], comboWindow: 0.45, finisherMul: 2.5, lunge: 150, finLunge: 1.8 },
       look: { skin: '#d08a5a', coat: '#ffcf33', trim: '#1b1b8f', shorts: '#1b1b8f', sock: '#ffcf33', hair: '#6b3a1a', band: '#d62828', shades: true, glove: '#d62828', mark: '王' } },
-    { id: 'chef', name: '불꽃 요리사', unlock: { stat: 'bestWave', need: 10, text: '웨이브 10 도달' }, skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커지고, 3타째는 맞은 적을 불태운다.',
+    { id: 'chef', name: '불꽃 요리사', skill: 'meat_lover', desc: '고기를 아는 사나이. 회복 고기 효과가 커지고, 3타째는 맞은 적을 불태운다.',
       attack: { range: 82, arc: 90, damage: 5, knockback: 400, duration: 0.24, active: [0.05, 0.14], comboWindow: 0.45, finisherMul: 2.2, lunge: 70, finBurn: 8 },
       look: { skin: '#e0a679', coat: '#ffffff', trim: '#d62828', shorts: '#3a3a4a', sock: '#ffffff', hair: '#5a3a1a', band: '#ffffff', hat: 'toque', mark: '肉' } },
     // 원거리 캐릭터: attack은 1~4타 근접 수치, 5타째(finisher, ranged.every로 조절)만 attack.ranged(발사체 설정)의 전용기술(fin)로 바뀐다. ranged.range = 발사체 최대 사거리
-    { id: 'wizard', name: '마법사', unlock: { stat: 'totalKills', need: 250, text: '누적 250마리 처치' }, skill: 'execute', speed: 0.95, desc: '지팡이로 때리고, 5타째는 마력 구슬을 날린다. 전용기술 [폭발 구슬]은 맞은 곳에서 터져 주변을 날려버린다.',
+    { id: 'wizard', name: '마법사', skill: 'execute', speed: 0.95, desc: '지팡이로 때리고, 5타째는 마력 구슬을 날린다. 전용기술 [폭발 구슬]은 맞은 곳에서 터져 주변을 날려버린다.',
       attack: { range: 80, arc: 90, damage: 4, knockback: 240, duration: 0.3, active: [0.07, 0.15], comboWindow: 0.5, finisherMul: 1.4, lunge: 40,
         ranged: { range: 340, speed: 480, radius: 14, color: '#b57cff', shape: 'orb', fin: { boom: 100, color: '#ff7ce8', speed: 420, radius: 22 } } },
       look: { skin: '#e0b08a', coat: '#4b2e8a', trim: '#ffd84a', shorts: '#2a1a55', sock: '#2a1a55', hair: '#d8d8e8', band: '#ffd84a', beard: '#d8d8e8', hat: 'wizard', mark: '魔' } },
-    { id: 'soldier', name: '군인', unlock: { stat: 'bestWave', need: 15, text: '웨이브 15 도달' }, skill: 'rapid', desc: '개머리판으로 때리고, 5타째는 소총을 쏜다. 전용기술 [저격탄]은 크고 빠른 총알 1발을 쏜다.',
+    { id: 'soldier', name: '군인', skill: 'rapid', desc: '개머리판으로 때리고, 5타째는 소총을 쏜다. 전용기술 [저격탄]은 크고 빠른 총알 1발을 쏜다.',
       attack: { range: 76, arc: 80, damage: 3, knockback: 230, duration: 0.2, active: [0.04, 0.1], comboWindow: 0.4, finisherMul: 1.2, lunge: 40,
         ranged: { range: 370, speed: 980, radius: 7, color: '#ffe37a', shape: 'bullet', fin: { count: 1, radius: 11, speed: 1150 } } },
       look: { skin: '#c98a5c', coat: '#4f6b3a', trim: '#33472a', shorts: '#3b4f2b', sock: '#2a2a22', hair: '#2a1a0f', band: '#33472a', hat: 'helmet', glove: '#2a2a22', mark: '兵' } },
-    { id: 'archer', name: '궁수', unlock: { stat: 'plays', need: 25, text: '25판 플레이' }, skill: 'long_reach', desc: '활로 후려치고, 5타째는 화살을 쏜다. 전용기술 [강궁]은 굵은 화살 1발을 쏜다.',
+    { id: 'archer', name: '궁수', skill: 'long_reach', desc: '활로 후려치고, 5타째는 화살을 쏜다. 전용기술 [강궁]은 굵은 화살 1발을 쏜다.',
       attack: { range: 84, arc: 70, damage: 4, knockback: 270, duration: 0.28, active: [0.06, 0.14], comboWindow: 0.45, finisherMul: 1.5, lunge: 40,
         ranged: { at: 0.14, range: 430, speed: 820, radius: 9, hitScale: 2, color: '#f4e3b0', shape: 'arrow', fin: { count: 1, radius: 12, speed: 950 } } },
       look: { skin: '#d9a273', coat: '#2f7a46', trim: '#7a5230', shorts: '#5a3a1a', sock: '#5a3a1a', hair: '#7a4a22', band: '#7a5230', hat: 'hood', mark: '弓' } },
   ],
 
-  // 웨이브별 등장 마릿수. 5웨이브마다(5, 10, 15...) 보스 웨이브. 마지막 웨이브 이후는 endless 설정을 따른다.
+  // ---------- 스테이지 ----------
+  // 로비에서 스테이지를 골라 시작한다. 마지막 웨이브까지 클리어하면 다음 스테이지가 열리고, 3스테이지를 클리어하면 무한 스테이지가 열린다.
+  // mul = 적 강화 배율(몸무게와 공격력. 스테이지마다 2배). bosses = 5웨이브마다 나오는 고정 보스(순서대로 5, 10, 15... 웨이브)
+  // 웨이브 구성: 1~30웨이브는 아래 waves 표, 31웨이브부터는 gen 규칙으로 정해진다(스테이지와 웨이브 번호로 항상 같은 구성)
+  stages: [
+    { id: 1, name: '1스테이지', sub: '축제 기둥', waves: 30, mul: 1, color: '#7dff9a',
+      bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_reaper'] },
+    { id: 2, name: '2스테이지', sub: '폭풍 기둥', waves: 50, mul: 2, color: '#8fd3ff',
+      bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper'] },
+    { id: 3, name: '3스테이지', sub: '심연 기둥', waves: 100, mul: 4, color: '#ff9bea',
+      bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper',
+        'boss_volcano', 'boss_void', 'boss_titan', 'boss_blade', 'boss_inferno', 'boss_ogre', 'boss_reaper', 'boss_volcano', 'boss_void', 'boss_doom'] },
+    // 무한: 끝이 없다. 웨이브 구성은 endless 규칙(정예, 맷집 증가)을 따르고, 보스는 bosses를 순서대로 반복한다
+    { id: 4, name: '무한 스테이지', sub: '끝없는 기둥', waves: 0, mul: 8, color: '#ffd84a', endless: true,
+      bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper', 'boss_volcano', 'boss_void', 'boss_doom'] },
+  ],
+  // 31웨이브부터의 구성: count = min(max, base + floor((웨이브 - 31) / every)) 마리를 endless.pool 가중치로 뽑는다. 보스 웨이브는 보스 + bossAdds 마리
+  gen: { base: 12, every: 10, max: 18, bossAdds: 4 },
+  // 보스 몸무게: x(1 + bossStep x 그 스테이지에서 몇 번째 보스인지(0부터))
+  bossStep: 0.05,
+
+  // ---------- 재화 ----------
+  // 골드: 이번 판에서만 쓰는 돈. 웨이브를 클리어할 때마다 base + perWave x 웨이브번호 를 받고, 장비상인에게 쓴다. 게임이 끝나면 사라진다
+  gold: { base: 10, perWave: 2 },
+  // 다이아: 영구 재화. 5웨이브마다 나오는 보스를 처치할 때만 (웨이브번호 / 5) x 스테이지번호 개를 받는다(무한 스테이지는 4). 성장 트리에서 쓴다
+  diamond: { per: 5 },
+
+  // ---------- 장비 (이번 판에서만 유효, 게임이 끝나면 사라짐) ----------
+  // 7웨이브마다(7, 14, 21...) 능력 선택 뒤 장비상인이 나온다. 골드로 사고, 최대 maxSlots개까지 낀다.
+  // stats: knock(공격 넉백 x), fin(3타째 강타 넉백 x), dmg(주는 피해% x), speed(이동 속도 x), range(공격 사거리 x), taken(받는 피해% x),
+  //        kbTaken(받는 넉백 x), dash(대시 쿨타임 x), cool(몇 초마다 발동하는 능력 쿨타임 x), gold(골드 획득 x), heal(웨이브 클리어 때 피해% 회복 +), reroll(능력 리롤 +)
+  // boost: 그 능력을 이미 가지고 있으면 레벨 +n (스킬과의 상승 시너지). set: 같은 세트를 2개, 3개 끼면 sets의 보너스가 붙는다
+  merchant: { every: 7, offers: 4, rerollCost: 15, maxSlots: 6 },
+  sets: {
+    fest:  { name: '축제', icon: '🎌', color: '#ffd84a', 2: { knock: 1.1 }, 3: { fin: 1.25, heal: 3 }, desc: ['공격 넉백 x1.1', '3타째 넉백 x1.25, 웨이브 클리어 회복 +3%'] },
+    steel: { name: '강철', icon: '⚙️', color: '#c0cbdc', 2: { taken: 0.9 }, 3: { kbTaken: 0.8 }, desc: ['받는 피해% x0.9', '받는 넉백 x0.8'] },
+    wind:  { name: '바람', icon: '🍃', color: '#7dff9a', 2: { speed: 1.1 }, 3: { dash: 0.75, range: 1.1 }, desc: ['이동 속도 x1.1', '대시 쿨타임 x0.75, 사거리 x1.1'] },
+    flame: { name: '불꽃', icon: '🔥', color: '#ff8a3c', 2: { dmg: 1.15 }, 3: { knock: 1.12, cool: 0.85 }, desc: ['주는 피해% x1.15', '공격 넉백 x1.12, 능력 쿨타임 x0.85'] },
+    gold:  { name: '황금', icon: '💰', color: '#feae34', 2: { gold: 1.3 }, 3: { heal: 5, knock: 1.06 }, desc: ['골드 획득 x1.3', '웨이브 클리어 회복 +5%, 공격 넉백 x1.06'] },
+  },
+  equips: [
+    { id: 'e_band',    set: 'fest',  icon: '🎌', name: '필승 머리띠',   price: 45,  stats: { knock: 1.08 },             boost: { b_headband: 1, iron_fist: 1 } },
+    { id: 'e_happi',   set: 'fest',  icon: '🥻', name: '축제 핫피',     price: 50,  stats: { taken: 0.93 },             boost: { b_belly: 1, heavy: 1 } },
+    { id: 'e_drum',    set: 'fest',  icon: '🥁', name: '큰북 북채',     price: 70,  stats: { fin: 1.15 },               boost: { roar: 1, b_fireworks: 1 } },
+    { id: 'e_knuckle', set: 'steel', icon: '🥊', name: '강철 너클',     price: 80,  stats: { knock: 1.12 },             boost: { iron_fist: 1, x_jab: 1 } },
+    { id: 'e_plate',   set: 'steel', icon: '🛡️', name: '강철 가슴판',   price: 70,  stats: { kbTaken: 0.88 },           boost: { tough: 1, shield: 1 } },
+    { id: 'e_boots',   set: 'steel', icon: '🥾', name: '쇠징 장화',     price: 55,  stats: { kbTaken: 0.93 },           boost: { grip: 1, s_dohyo: 1, last_stand: 1 } },
+    { id: 'e_shoes',   set: 'wind',  icon: '👟', name: '바람 신발',     price: 45,  stats: { speed: 1.1 },              boost: { quick_feet: 1, dash_far: 1 } },
+    { id: 'e_cape',    set: 'wind',  icon: '🧣', name: '바람 목도리',   price: 60,  stats: { dash: 0.85 },              boost: { dash_cool: 1, dash_ghost: 1, n_smoke: 1 } },
+    { id: 'e_fan',     set: 'wind',  icon: '🪭', name: '태풍 부채',     price: 75,  stats: { range: 1.1 },              boost: { long_reach: 1, wide_swing: 1, cyclone: 1 } },
+    { id: 'e_glove',   set: 'flame', icon: '🧤', name: '불꽃 장갑',     price: 65,  stats: { dmg: 1.12 },               boost: { fire_fist: 1, pump: 1, c_flame: 1 } },
+    { id: 'e_charm',   set: 'flame', icon: '🧧', name: '불꽃 부적',     price: 80,  stats: { cool: 0.9 },               boost: { meteor: 1, cannon: 1, rock_roll: 1 } },
+    { id: 'e_dagger',  set: 'flame', icon: '🗡️', name: '용암 단검',     price: 90,  stats: { fin: 1.12, dmg: 1.05 },    boost: { crit: 1, execute: 1, bash: 1 } },
+    { id: 'e_pouch',   set: 'gold',  icon: '👛', name: '황금 복주머니', price: 40,  stats: { gold: 1.25 },              boost: { bounty: 1, chain: 1 } },
+    { id: 'e_ring',    set: 'gold',  icon: '💍', name: '황금 반지',     price: 75,  stats: { heal: 4 },                 boost: { regen: 1, vampire: 1, recovery: 1 } },
+    { id: 'e_crown',   set: 'gold',  icon: '👑', name: '황금 왕관',     price: 120, stats: { knock: 1.05, gold: 1.15 }, boost: { adrenaline: 1, b_festival: 1, b_cheer: 1 } },
+    { id: 'e_rock',                  icon: '🪨', name: '짊어진 바위',   price: 60,  stats: { kbTaken: 0.85, speed: 0.92 }, boost: { heavy: 2 } },
+    { id: 'e_shroom',                icon: '🍄', name: '수상한 버섯',   price: 55,  stats: { dmg: 1.2, taken: 1.1 },    boost: { berserk: 1, revenge: 1 } },
+    { id: 'e_glass',                 icon: '⏳', name: '모래시계',      price: 95,  stats: { cool: 0.85 },              boost: { time_stop: 1, skill_cool: 1, clone: 1 } },
+    { id: 'e_map',                   icon: '🗺️', name: '낡은 지도',     price: 50,  stats: { reroll: 1 },               boost: {} },
+    { id: 'e_mega',                  icon: '📣', name: '응원 메가폰',   price: 65,  stats: { knock: 1.04 },             boost: { roar: 1, s_shout: 1, b_cheer: 1, intimidate: 1 } },
+  ],
+
+  // ---------- 성장 트리 (다이아로 사는 영구 성장, 방사형) ----------
+  // 가운데 root에서 시작해 바깥으로 이어진다. req = 먼저 사야 하는 노드. branch = 가지(각도), depth = 가운데에서 몇 칸, lane = 가지 안에서 옆으로 벌어지는 정도
+  // type: 'stat'(stats는 장비와 같은 키, 여러 노드가 곱해짐/더해짐), 'char'(캐릭터 해금), 'item'(필드 아이템 해금), 'skill'(능력 묶음 해금)
+  //       startGold(시작 골드 +), saves(시작 낙법 +), dia(다이아 획득 x), shop(상인 진열 +), discount(상인 가격 x)
+  treeBranches: {
+    power: { name: '힘', icon: '💪', angle: -90, color: '#ff8a3c' },
+    body:  { name: '맷집', icon: '🛡️', angle: -18, color: '#8fd3ff' },
+    money: { name: '재물', icon: '💰', angle: 54, color: '#ffd84a' },
+    chars: { name: '캐릭터', icon: '👤', angle: 126, color: '#7dff9a' },
+    unlock:{ name: '해금', icon: '🔓', angle: 198, color: '#c77dff' },
+  },
+  tree: [
+    { id: 'root', icon: '⭐', name: '시작', cost: 0, branch: null, depth: 0, desc: '성장 트리의 시작점' },
+    // 힘
+    { id: 't_kb1',  branch: 'power', depth: 1, lane: 0,  req: 'root',  cost: 2,  icon: '👊', name: '단련 I',     type: 'stat', stats: { knock: 1.05 }, desc: '공격 넉백 x1.05' },
+    { id: 't_dmg1', branch: 'power', depth: 2, lane: -1, req: 't_kb1', cost: 4,  icon: '💢', name: '거친 주먹',   type: 'stat', stats: { dmg: 1.08 }, desc: '주는 피해% x1.08' },
+    { id: 't_kb2',  branch: 'power', depth: 2, lane: 1,  req: 't_kb1', cost: 5,  icon: '👊', name: '단련 II',    type: 'stat', stats: { knock: 1.06 }, desc: '공격 넉백 x1.06' },
+    { id: 't_fin',  branch: 'power', depth: 3, lane: 0,  req: 't_kb2', cost: 8,  icon: '💥', name: '필살 강타',   type: 'stat', stats: { fin: 1.12 }, desc: '3타째 넉백 x1.12' },
+    { id: 't_rng',  branch: 'power', depth: 3, lane: -1.4, req: 't_dmg1', cost: 7, icon: '🦍', name: '긴 팔뚝',   type: 'stat', stats: { range: 1.06 }, desc: '공격 사거리 x1.06' },
+    { id: 't_kb3',  branch: 'power', depth: 4, lane: 0,  req: 't_fin', cost: 14, icon: '🔱', name: '단련 III',   type: 'stat', stats: { knock: 1.1 }, desc: '공격 넉백 x1.1' },
+    // 맷집
+    { id: 't_tg1',  branch: 'body', depth: 1, lane: 0,  req: 'root',  cost: 2,  icon: '🛡️', name: '굳은살 I',    type: 'stat', stats: { taken: 0.95 }, desc: '받는 피해% x0.95' },
+    { id: 't_heal', branch: 'body', depth: 2, lane: -1, req: 't_tg1', cost: 4,  icon: '🍙', name: '도시락',      type: 'stat', stats: { heal: 3 }, desc: '웨이브 클리어 때 피해% 3 회복' },
+    { id: 't_kbt',  branch: 'body', depth: 2, lane: 1,  req: 't_tg1', cost: 5,  icon: '🦶', name: '버티는 발',   type: 'stat', stats: { kbTaken: 0.94 }, desc: '받는 넉백 x0.94' },
+    { id: 't_spd',  branch: 'body', depth: 3, lane: -1.4, req: 't_heal', cost: 6, icon: '👟', name: '가벼운 몸', type: 'stat', stats: { speed: 1.05 }, desc: '이동 속도 x1.05' },
+    { id: 't_tg2',  branch: 'body', depth: 3, lane: 0.6, req: 't_kbt', cost: 9,  icon: '🧱', name: '굳은살 II',   type: 'stat', stats: { taken: 0.92 }, desc: '받는 피해% x0.92' },
+    { id: 't_save', branch: 'body', depth: 4, lane: 0,  req: 't_tg2', cost: 18, icon: '🪽', name: '수호 낙법',   type: 'saves', value: 1, desc: '판마다 낙법 1회를 가지고 시작 (떨어져도 한 번 돌아온다)' },
+    // 재물
+    { id: 't_gold1', branch: 'money', depth: 1, lane: 0,  req: 'root',    cost: 2,  icon: '🪙', name: '알뜰살뜰',   type: 'stat', stats: { gold: 1.15 }, desc: '골드 획득 x1.15' },
+    { id: 't_sgold', branch: 'money', depth: 2, lane: -1, req: 't_gold1', cost: 3,  icon: '💵', name: '비상금',     type: 'startGold', value: 40, desc: '시작 골드 +40' },
+    { id: 't_shop',  branch: 'money', depth: 2, lane: 1,  req: 't_gold1', cost: 5,  icon: '🏪', name: '단골 손님',   type: 'shop', value: 1, desc: '장비상인 진열 +1칸' },
+    { id: 't_disc',  branch: 'money', depth: 3, lane: 1,  req: 't_shop',  cost: 8,  icon: '🏷️', name: '흥정의 달인', type: 'discount', value: 0.85, desc: '장비 가격 x0.85' },
+    { id: 't_rr',    branch: 'money', depth: 3, lane: -1, req: 't_sgold', cost: 7,  icon: '🎲', name: '행운의 주사위', type: 'stat', stats: { reroll: 1 }, desc: '능력 리롤 +1 (판 시작 때)' },
+    { id: 't_dia',   branch: 'money', depth: 4, lane: 0,  req: 't_disc',  cost: 20, icon: '💎', name: '보석 감정사', type: 'dia', value: 1.5, desc: '다이아 획득 x1.5 (반올림)' },
+    // 캐릭터: 세 갈래로 3명씩
+    { id: 't_ch',       branch: 'chars', depth: 1, lane: 0,    req: 'root',      cost: 1,  icon: '👤', name: '동료 모집',  type: 'stat', stats: {}, desc: '캐릭터 가지를 연다' },
+    { id: 'c_ninja',    branch: 'chars', depth: 2, lane: -1.6, req: 't_ch',      cost: 3,  icon: '🥷', name: '쾌속 닌자',  type: 'char', char: 'ninja' },
+    { id: 'c_boxer',    branch: 'chars', depth: 3, lane: -1.9, req: 'c_ninja',   cost: 6,  icon: '🥊', name: '복서',      type: 'char', char: 'boxer' },
+    { id: 'c_wizard',   branch: 'chars', depth: 4, lane: -2.1, req: 'c_boxer',   cost: 12, icon: '🧙', name: '마법사',    type: 'char', char: 'wizard' },
+    { id: 'c_sumo',     branch: 'chars', depth: 2, lane: 0,    req: 't_ch',      cost: 4,  icon: '🤼', name: '스모 장사',  type: 'char', char: 'sumo' },
+    { id: 'c_wrestler', branch: 'chars', depth: 3, lane: 0,    req: 'c_sumo',    cost: 8,  icon: '🦸', name: '프로 레슬러', type: 'char', char: 'wrestler' },
+    { id: 'c_soldier',  branch: 'chars', depth: 4, lane: 0,    req: 'c_wrestler', cost: 14, icon: '🪖', name: '군인',     type: 'char', char: 'soldier' },
+    { id: 'c_general',  branch: 'chars', depth: 2, lane: 1.6,  req: 't_ch',      cost: 5,  icon: '🔱', name: '창술 장군',  type: 'char', char: 'general' },
+    { id: 'c_chef',     branch: 'chars', depth: 3, lane: 1.9,  req: 'c_general', cost: 9,  icon: '🍳', name: '불꽃 요리사', type: 'char', char: 'chef' },
+    { id: 'c_archer',   branch: 'chars', depth: 4, lane: 2.1,  req: 'c_chef',    cost: 16, icon: '🏹', name: '궁수',      type: 'char', char: 'archer' },
+    // 해금: 필드 아이템과 능력 묶음
+    { id: 'i_gem',    branch: 'unlock', depth: 1, lane: 0,    req: 'root',    cost: 2,  icon: '💎', name: '보석 아이템',  type: 'item', items: ['gem'], desc: '필드 아이템 [보석]이 떨어진다' },
+    { id: 'i_ice',    branch: 'unlock', depth: 2, lane: -1.2, req: 'i_gem',   cost: 4,  icon: '🧊', name: '얼음 결정 아이템', type: 'item', items: ['ice'], desc: '필드 아이템 [얼음 결정]이 떨어진다' },
+    { id: 'i_star',   branch: 'unlock', depth: 3, lane: -1.6, req: 'i_ice',   cost: 9,  icon: '⭐', name: '무적 별 아이템', type: 'item', items: ['star'], desc: '필드 아이템 [무적 별]이 떨어진다' },
+    { id: 's_dash',   branch: 'unlock', depth: 2, lane: 0.4,  req: 'i_gem',   cost: 4,  icon: '🏃', name: '대시 기술서',  type: 'skill', skills: ['dash_cool', 'dash_far', 'dash_ghost', 'dash_ram', 'dash_quake'] },
+    { id: 's_elem',   branch: 'unlock', depth: 3, lane: 0,    req: 's_dash',  cost: 7,  icon: '🔥', name: '속성 기술서',  type: 'skill', skills: ['fire_fist', 'frost', 'spark'] },
+    { id: 's_crit',   branch: 'unlock', depth: 3, lane: 1.6,  req: 's_dash',  cost: 8,  icon: '🎯', name: '급소 기술서',  type: 'skill', skills: ['crit', 'execute', 'bash', 'berserk'] },
+    { id: 's_summon', branch: 'unlock', depth: 4, lane: -0.6, req: 's_elem',  cost: 12, icon: '☄️', name: '소환 기술서',  type: 'skill', skills: ['rock_roll', 'meteor', 'cannon', 'clone'] },
+    { id: 's_time',   branch: 'unlock', depth: 4, lane: 1.2,  req: 's_crit',  cost: 15, icon: '⏳', name: '비전 기술서',  type: 'skill', skills: ['time_stop', 'ghost', 'giant', 'stomp'] },
+  ],
+
+  // 1~30웨이브 구성 (모든 스테이지 공통). boss: 1 = 그 스테이지의 고정 보스. 31웨이브부터는 gen 규칙을 따른다
   waves: [
     { grunt: 3 },                                              // 1
     { grunt: 5 },                                              // 2
     { grunt: 3, charger: 1, runner: 1 },                       // 3 날쌘이 등장
     { grunt: 4, charger: 2, brute: 1, runner: 1 },             // 4
-    { boss_random: 1, grunt: 1 },                                // 5 보스: 왕졸개
+    { boss: 1, grunt: 1 },                                // 5 보스: 왕졸개
     { grunt: 4, charger: 3, tank: 2 },                         // 6 철갑병 등장
     { grunt: 5, brute: 2, tank: 2, runner: 3 },                // 7
     { charger: 3, rusher: 3, brute: 2, runner: 1 },            // 8 번개 돌격병 등장
     { grunt: 6, rusher: 3, tank: 2, brute: 2 },                // 9
-    { boss_random: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
+    { boss: 1, charger: 3, grunt: 3 },                   // 10 보스: 철벽 대왕 코뿔소
     { grunt: 5, spiky: 4, tank: 2, rusher: 3 },                // 11 가시돌이 등장
     { charger: 4, brute: 3, spiky: 3, runner: 4 },             // 12
     { rhino: 2, spiky: 3, tank: 3, grunt: 5 },                 // 13 코뿔소 등장
     { rhino: 2, rusher: 4, brute: 3, spiky: 3 },               // 14
-    { boss_random: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
+    { boss: 1, brute: 3, spiky: 3, runner: 3 },          // 15 보스: 지진 거인
     { ninja: 4, rhino: 2, tank: 3, mage: 2 },                  // 16 닌자, 마법사 등장
     { ninja: 5, rusher: 4, brute: 3, mage: 2 },                // 17
     { golem: 2, ninja: 4, rhino: 2, tank: 3, spider: 2, splitter: 2 },                 // 18 골렘 등장
     { golem: 2, ninja: 4, rusher: 4, mage: 2, witch: 1, clown: 2 },      // 19 장판 마녀 등장
-    { boss_random: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
+    { boss: 1, ninja: 4, rusher: 4, mage: 2 },           // 20 보스: 질풍 닌자왕
     { hornet: 8, golem: 2, rhino: 3, spiky: 4, enraged: 2, phantom: 1 },               // 21 말벌 등장
     { hornet: 8, mage: 3, witch: 2, tank: 4, rhino: 3, frostmage: 2, bomber: 1 },       // 22
     { hornet: 6, golem: 3, rusher: 5, brute: 4, spiky: 4, anvil: 1, magnet: 2 },    // 23
     { ogre: 3, hornet: 6, golem: 2, ninja: 5, broodmother: 1, spider: 2 },                // 24 오우거 등장
-    { boss_random: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
+    { boss: 1, ogre: 2, rhino: 3, hornet: 6 },            // 25 보스: 대왕 오우거
     { ogre: 4, golem: 3, mage: 3, witch: 2, hornet: 5, phantom: 2, clown: 2 },       // 26
     { reaper: 3, ogre: 3, golem: 3, spiky: 5 },                // 27 저승사자 등장
     { reaper: 4, ogre: 4, ninja: 6, rhino: 3, hornet: 6, anvil: 2, enraged: 2 },     // 28
     { reaper: 4, ogre: 4, witch: 3, mage: 3, rusher: 5, frostmage: 2, magnet: 2, bomber: 2 },      // 29
-    { boss_random: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
+    { boss: 1, reaper: 3, ogre: 3, golem: 3, ninja: 5 }, // 30 보스: 기둥의 파괴신
   ],
   // 회복 아이템: every 웨이브마다 한 번(3, 6, 9...), 웨이브 시작 delay초 뒤 기둥 위에 떨어진다. 주우면 피해% -heal
   meat: { every: 3, delay: 5, heal: 20, radius: 20 },
 
   // 필드 아이템: 매 웨이브 chance 확률로 delay[0]~delay[1]초 사이에 하나가 떨어진다(weight 가중치). life초 뒤 사라진다.
-  // 주우면 효과가 바로 나거나(bomb, ice, gem) 스테이지가 끝날 때까지 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
+  // 주우면 효과가 바로 나거나(bomb, ice, gem) 웨이브가 끝날 때까지 지속된다(star, drink, protein). 효과는 game.js의 useItem에서 id로 처리한다
   itemDrop: { chance: 0.75, delay: [4, 12], radius: 18 },
   items: [
     { id: 'bomb',    icon: '💣', name: '폭탄',         weight: 3, life: 15, range: 230, force: 950, desc: '주변 적을 모두 날려버림' },
-    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '이번 스테이지 동안 무적' },
-    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '이번 스테이지 동안 이동·공격 속도 x1.4' },
-    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '이번 스테이지 동안 공격 넉백 x1.5' },
+    { id: 'star',    icon: '⭐', name: '무적 별',       weight: 2, life: 12, time: 6, desc: '이번 웨이브 동안 무적' },
+    { id: 'drink',   icon: '⚡', name: '에너지 드링크', weight: 3, life: 15, time: 8, mul: 1.4, desc: '이번 웨이브 동안 이동·공격 속도 x1.4' },
+    { id: 'protein', icon: '🥤', name: '프로틴',       weight: 3, life: 15, time: 10, mul: 1.5, desc: '이번 웨이브 동안 공격 넉백 x1.5' },
     { id: 'ice',     icon: '🧊', name: '얼음 결정',     weight: 2, life: 15, time: 3, desc: '3초 동안 모든 적이 얼어붙음 (보스는 절반)' },
-    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 스테이지)' },
+    { id: 'gem',     icon: '💎', name: '보석',          weight: 2, life: 10, score: 100, desc: '점수 +(100 x 웨이브)' },
   ],
 
   // 마지막 웨이브(30) 이후: 마릿수는 count로 고정하고 pool(가중치)에서 무작위로 섞는다.
@@ -499,8 +618,8 @@ window.GAME_DATA = {
   // 정예: 확률 elite + eliteStep * n (최대 eliteMax), 몸무게 x eliteMass, 크기 x eliteScale, 금색 테두리
   endless: {
     count: 16, tough: 0.08, elite: 0.1, eliteStep: 0.02, eliteMax: 0.45, eliteMass: 1.7, eliteScale: 1.18,
-    // late: 레벨 from부터는 단단해짐/정예 증가 속도가 boost배 빨라진다 (게임이 너무 길어지지 않게)
-    late: { from: 40, boost: 3 },
+    // late: 무한 스테이지 from웨이브부터는 단단해짐/정예 증가 속도가 boost배 빨라진다 (게임이 너무 길어지지 않게)
+    late: { from: 10, boost: 3 },
     pool: { frog: 3, guard: 3, ghost: 3, stomper: 2, ogre: 2, reaper: 2, golem: 1, ninja: 2, rhino: 1, mage: 1, witch: 1, spiky: 1,
       spider: 2, phantom: 2, anvil: 1, clown: 2, broodmother: 1, frostmage: 1, magnet: 1, enraged: 2, splitter: 2, bomber: 1 },
   },

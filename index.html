@@ -154,6 +154,57 @@
   .charBtn { flex: none; min-width: 78px; padding: 10px 8px; border-radius: 10px; border: 0; font-size: 14px; font-weight: 800; cursor: pointer; background: #ffd84a; color: #2a1a0a; }
   .charBtn:disabled { background: rgba(255, 255, 255, .15); color: #ccc; cursor: default; }
   .rankLine { font-size: 18px; font-weight: 800; color: #8fd3ff; margin-top: 6px; }
+
+  /* 로비: 다이아, 스테이지 선택, 성장 트리, 장비 도감 */
+  .titleDia { font-size: 20px; font-weight: 900; color: #8fe8ff; }
+  #overTitle.clear { color: #7dff9a; font-size: clamp(34px, 8vw, 64px); }
+  .lobbyPanel { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); background: rgba(8, 8, 16, .88); }
+  .panelBox { width: min(560px, 100%); background: #1d1f38; border-radius: 18px; padding: 16px; box-sizing: border-box; border: 2px solid #3d4175; text-align: left;
+    display: flex; flex-direction: column; gap: 10px; }
+  .panelHead { display: flex; justify-content: space-between; align-items: center; font-size: 19px; font-weight: 900; }
+  .panelHead .dia { color: #8fe8ff; }
+  #stageList { display: flex; flex-direction: column; gap: 10px; }
+  .stageCard { text-align: left; padding: 14px 16px; border-radius: 14px; border: 3px solid var(--c); background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer; font-family: inherit; }
+  .stageCard:hover:not(:disabled) { background: rgba(255, 255, 255, .12); }
+  .stageCard.locked { border-color: rgba(255, 255, 255, .15); opacity: .55; cursor: default; }
+  .stName { font-size: 20px; font-weight: 900; color: var(--c); }
+  .stageCard.locked .stName { color: #ccc; }
+  .stSub { font-size: 13px; opacity: .8; margin-top: 3px; }
+  #treeSvg { width: 100%; aspect-ratio: 1; display: block; background: radial-gradient(circle, #24264a 0%, #15162b 70%); border-radius: 14px; }
+  #treeSvg .edge { stroke: rgba(255, 255, 255, .18); stroke-width: 3; }
+  #treeSvg .node { cursor: pointer; }
+  #treeSvg .node circle { fill: #15162b; stroke: rgba(255, 255, 255, .25); stroke-width: 3; }
+  #treeSvg .node.can circle { stroke: var(--c); stroke-dasharray: 6 4; }
+  #treeSvg .node.own circle { fill: var(--c); stroke: #fff; }
+  #treeSvg .node.lock text { opacity: .35; }
+  #treeSvg .node.sel circle { stroke: #fff; stroke-width: 5; stroke-dasharray: none; }
+  #treeSvg .node text { font-size: 20px; text-anchor: middle; pointer-events: none; }
+  #treeSvg .brName { font-size: 17px; font-weight: 900; text-anchor: middle; }
+  #treeInfo { background: rgba(255, 255, 255, .06); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-height: 92px; }
+  #treeInfo .big { align-self: flex-start; font-size: 17px; padding: 10px 22px; }
+  #treeInfo .big:disabled { opacity: .45; }
+  .tiName { font-size: 18px; font-weight: 900; }
+  .tiDesc { font-size: 14px; opacity: .9; line-height: 1.45; }
+  .tiState { font-size: 13px; color: #ffb36b; }
+  .tiState.ok { color: #7dff9a; }
+  .cxHead { font-size: 17px; font-weight: 900; margin-top: 8px; }
+  .cxGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .card.eq { max-width: none; cursor: default; padding: 10px 8px; gap: 4px; }
+  .card.eq .icon { font-size: 30px; }
+  .card.eq .cname { font-size: 15px; }
+  .card.eq .cdesc { font-size: 12px; }
+  .card.eq .boost { color: #8fd3ff; }
+  .card.eq .price { font-size: 15px; font-weight: 900; color: #ffd84a; margin-top: 2px; }
+
+  /* 장비상인 */
+  #shop { background: rgba(8, 8, 16, .85); justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); }
+  #shopOffers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: min(700px, 100%); }
+  #shopOffers .card.eq { cursor: pointer; }
+  #shopOffers .card.eq:disabled { opacity: .45; cursor: default; transform: none; }
+  #shopOffers .card.sold { border-color: #1f6b3a; }
+  .shopHead { font-size: 22px; font-weight: 900; color: #ffd84a; }
+  #shopEq { width: min(700px, 100%); text-align: left; }
+  .eqIcons { font-size: 26px; letter-spacing: 6px; }
 </style>
 </head>
 <body>
@@ -174,27 +225,72 @@
     <label for="nameInput">이름</label>
     <input id="nameInput" maxlength="12" placeholder="랭킹에 표시될 이름" autocomplete="off" enterkeyhint="go">
   </div>
+  <div class="titleDia" id="titleDia"></div>
   <div class="row">
     <button class="big" id="btnStart">시작</button>
     <button class="ghost" id="btnRec">🏆 랭킹</button>
     <button class="ghost" id="btnChars">👤 캐릭터</button>
   </div>
+  <div class="row">
+    <button class="ghost" id="btnTree">🌳 성장 트리</button>
+    <button class="ghost" id="btnCodex">📖 장비 도감</button>
+  </div>
 </div>
 
 <div id="over" class="overlay hidden">
-  <h1>낙하!</h1>
+  <h1 id="overTitle">낙하!</h1>
   <div class="sub" id="overStats"></div>
   <div class="row">
     <button class="big" id="btnRetry">다시 하기</button>
+    <button class="ghost" id="btnLobby">🏠 로비</button>
     <button class="ghost" id="btnRec2">🏆 랭킹</button>
     <button class="ghost" id="btnChars2">👤 캐릭터</button>
   </div>
 </div>
 
+<div id="stages" class="overlay lobbyPanel hidden">
+  <div class="panelBox">
+    <div class="panelHead"><span>🗺️ 스테이지 선택</span></div>
+    <div class="chatNote">마지막 웨이브까지 버티면 클리어! 클리어하면 다음 스테이지가 열리고, 3스테이지를 클리어하면 무한 스테이지가 열려요. 스테이지가 오를수록 적의 몸무게와 공격력이 2배씩 세져요.</div>
+    <div id="stageList"></div>
+    <button class="ghost" id="stagesClose">닫기</button>
+  </div>
+</div>
+
+<div id="tree" class="overlay lobbyPanel hidden">
+  <div class="panelBox">
+    <div class="panelHead"><span>🌳 성장 트리</span><span class="dia" id="treeDia"></span></div>
+    <div class="chatNote">다이아로 사는 영구 성장이에요. 가운데에서 바깥으로 이어서 살 수 있어요. 다이아는 5웨이브마다 나오는 보스를 처치할 때만 얻어요 ((웨이브 / 5) x 스테이지 번호).</div>
+    <svg id="treeSvg" viewBox="-360 -350 720 700"></svg>
+    <div id="treeInfo"></div>
+    <button class="ghost" id="treeClose">닫기</button>
+  </div>
+</div>
+
+<div id="codex" class="overlay lobbyPanel hidden">
+  <div class="panelBox">
+    <div class="panelHead"><span>📖 장비 도감</span></div>
+    <div class="chatNote">장비는 7웨이브마다 나오는 장비상인에게 골드로 사요. 이번 판에서만 쓰고 게임이 끝나면 사라져요. 같은 세트를 2개, 3개 끼면 보너스가 붙고, 장비가 강화하는 능력을 가지고 있으면 그 능력 레벨이 더 올라요.</div>
+    <div id="codexList"></div>
+    <button class="ghost" id="codexClose">닫기</button>
+  </div>
+</div>
+
+<div id="shop" class="overlay hidden">
+  <div class="shopHead">🧳 장비상인 <span id="shopGold"></span></div>
+  <div class="chatNote">골드로 이번 판 장비를 사세요. 게임이 끝나면 장비는 사라져요.</div>
+  <div id="shopOffers"></div>
+  <div class="row">
+    <button class="ghost" id="shopReroll"></button>
+    <button class="big" id="shopLeave">다음 웨이브 ▶</button>
+  </div>
+  <div id="shopEq"></div>
+</div>
+
 <div id="chars" class="overlay hidden">
   <div class="charBox">
     <div class="charHead"><span>👤 캐릭터 (<span id="charNow"></span>)</span></div>
-    <div class="chatNote">업적을 달성하면 캐릭터가 하나씩 해금돼요. 캐릭터마다 시작 능력과 공격 방식이 달라요.</div>
+    <div class="chatNote">캐릭터는 🌳 성장 트리에서 다이아로 해금해요. 캐릭터마다 시작 능력과 공격 방식이 달라요.</div>
     <div id="charList"></div>
     <button class="ghost" id="charClose">닫기</button>
   </div>
@@ -254,7 +350,8 @@
   </div>
 </div>
 
-<script src="data.js"></script>
-<script src="game.js"></script>
+<!-- ?v= 는 배포할 때 바꿔서 브라우저가 예전 data.js/game.js를 캐시에서 쓰지 않게 한다 (둘이 어긋나면 게임이 멈춘다) -->
+<script src="data.js?v=20261121b"></script>
+<script src="game.js?v=20261121b"></script>
 </body>
 </html>

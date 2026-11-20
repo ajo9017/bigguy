@@ -8,6 +8,9 @@
   const GRAVITY = 1700;
   const ABIL = Object.fromEntries(D.abilities.map(a => [a.id, a]));
   const ITEM = Object.fromEntries(D.items.map(it => [it.id, it]));
+  const EQUIP = Object.fromEntries(D.equips.map(e => [e.id, e]));
+  const TREE = Object.fromEntries(D.tree.map(n => [n.id, n]));
+  const STAGE = Object.fromEntries(D.stages.map(s => [s.id, s]));
 
   const canvas = document.getElementById('game');
   let ctx = canvas.getContext('2d');
@@ -22,6 +25,9 @@
     ownerToggle: $('ownerToggle'), ownerRow: $('ownerRow'), ownerCode: $('ownerCode'),
     skillInfo: $('skillInfo'), skillCards: $('skillCards'), chars: $('chars'), charList: $('charList'), charNow: $('charNow'),
     records: $('records'), recBody: $('recBody'), rankBody: $('rankBody'), rankList: $('rankList'), rankReset: $('rankReset'), myName: $('myName'), nameInput: $('nameInput'),
+    overTitle: $('overTitle'), titleDia: $('titleDia'), stages: $('stages'), stageList: $('stageList'),
+    tree: $('tree'), treeSvg: $('treeSvg'), treeInfo: $('treeInfo'), treeDia: $('treeDia'),
+    codex: $('codex'), codexList: $('codexList'), shop: $('shop'), shopOffers: $('shopOffers'), shopGold: $('shopGold'), shopEq: $('shopEq'), shopReroll: $('shopReroll'),
   };
 
   // ---------- 화면 ----------
@@ -119,6 +125,46 @@
     set(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* 저장소 없음 */ } },
   };
 
+  // ---------- 영구 성장: 다이아, 성장 트리, 스테이지 기록 (localStorage 'bigguy.meta') ----------
+  // dia = 보유 다이아, tree = 산 노드 id, cleared = 클리어한 스테이지 id, best = 스테이지별 최고 웨이브
+  const meta = Object.assign({ dia: 0, tree: ['root'], cleared: [], best: {} }, storage.get('bigguy.meta', {}));
+  const saveMeta = () => storage.set('bigguy.meta', meta);
+  const hasNode = id => meta.tree.includes(id);
+  // 스테이지는 앞 스테이지를 클리어해야 열린다 (무한은 3스테이지 클리어 뒤)
+  const stageOpen = s => s.id === 1 || meta.cleared.includes(s.id - 1);
+  // 노드 type별 효과 합: 더하는 값(startGold, saves, shop)과 곱하는 값(discount, dia)
+  function treeVal(type) {
+    const mul = type === 'discount' || type === 'dia';
+    let v = mul ? 1 : 0;
+    for (const id of meta.tree) { const n = TREE[id]; if (n && n.type === type) v = mul ? v * n.value : v + n.value; }
+    return v;
+  }
+  // 해금 노드에 묶인 아이템·능력은 그 노드를 사야 나온다. 어느 노드에도 없으면 처음부터 열려 있다
+  const lockedBy = (key, id) => D.tree.find(n => n[key] && n[key].includes(id));
+  const itemOpen = id => { const n = lockedBy('items', id); return !n || hasNode(n.id); };
+  const skillOpenFn = id => { const n = lockedBy('skills', id); return !n || hasNode(n.id); };
+
+  // 성장 트리(영구) + 장비 + 장비 세트 보너스(이번 판)의 능력치 합. heal, reroll은 더하고 나머지는 곱한다
+  const ADD_STATS = new Set(['heal', 'reroll']);
+  function activeSets(eq) {
+    const cnt = {};
+    for (const id of eq || []) { const s = EQUIP[id].set; if (s) cnt[s] = (cnt[s] || 0) + 1; }
+    const out = [];
+    for (const s in cnt) { if (cnt[s] >= 2) out.push(D.sets[s][2]); if (cnt[s] >= 3) out.push(D.sets[s][3]); }
+    return out;
+  }
+  function st(key, onlyTree) {
+    const add = ADD_STATS.has(key);
+    let v = add ? 0 : 1;
+    const apply = s => { if (s && s[key] != null) v = add ? v + s[key] : v * s[key]; };
+    for (const id of meta.tree) { const n = TREE[id]; if (n && n.type === 'stat') apply(n.stats); }
+    if (!onlyTree && player && player.eq) {
+      for (const id of player.eq) apply(EQUIP[id].stats);
+      for (const b of activeSets(player.eq)) apply(b);
+    }
+    return v;
+  }
+
   // ---------- 사운드 (합성음) ----------
   const Sfx = {
     ctx: null, noiseBuf: null,
@@ -184,6 +230,7 @@
   const game = {
     state: 'title', wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1,
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, rerolls: 1, choices: [], fireworks: [],
+    stage: D.stages[0], gold: 0, shopping: false, offers: [],
   };
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [], meteors = [];
@@ -221,14 +268,15 @@
     if (e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') pressDash();
     if (game.picking && /^Digit[1-3]$/.test(e.code)) choose(+e.code.slice(5) - 1);
     if (game.picking && e.code === 'KeyR') reroll();
-    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && ui.records.classList.contains('hidden') && ui.chars.classList.contains('hidden')) startGame();
+    const lobbyFree = [ui.records, ui.chars, ui.stages, ui.tree, ui.codex].every(el => el.classList.contains('hidden'));
+    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && lobbyFree) { if (game.state === 'over') startGame(game.stage.id); else openStages(); }
   });
   addEventListener('keyup', e => keys.delete(e.code));
   addEventListener('blur', releaseInput);
 
   canvas.addEventListener('pointerdown', e => {
     Sfx.unlock();
-    if (game.state === 'play' && !game.picking && !chatOpen && !skillOpen) {
+    if (game.state === 'play' && !game.picking && !game.shopping && !chatOpen && !skillOpen) {
       const hit = abilRects.find(r => e.clientX >= r.x && e.clientX <= r.x + r.w && e.clientY >= r.y && e.clientY <= r.y + r.h);
       if (hit) { openSkillInfo(); return; }
     }
@@ -254,8 +302,9 @@
   btnDash.addEventListener('pointerdown', e => { e.preventDefault(); pressDash(); btnDash.classList.add('on'); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) btnDash.addEventListener(t, () => btnDash.classList.remove('on'));
 
-  $('btnStart').addEventListener('click', () => { Sfx.unlock(); startGame(); });
-  $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(); });
+  $('btnStart').addEventListener('click', () => { Sfx.unlock(); openStages(); });
+  $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(game.stage.id); });
+  $('btnLobby').addEventListener('click', () => { ui.over.classList.add('hidden'); ui.title.classList.remove('hidden'); game.state = 'title'; updateLobby(); });
   for (const id of ['btnRec', 'btnRec2']) $(id).addEventListener('click', () => openRecords('rank'));
   for (const tab of document.querySelectorAll('#records .tab[data-tab]')) tab.addEventListener('click', () => openRecords(tab.dataset.tab));
   for (const b of document.querySelectorAll('#rankTabs .sub')) b.addEventListener('click', () => { rankPeriod = b.dataset.period; loadRanking(); });
@@ -286,7 +335,9 @@
     if (a.cap != null) v = step > 0 ? Math.min(v, a.cap) : Math.max(v, a.cap);
     return Math.round(v * 100) / 100;
   }
-  const ab = (id, dflt) => { const l = lvl(id); return l ? abVal(ABIL[id], l) : dflt; };
+  // 장비 시너지: 그 능력을 이미 가지고 있으면 장비의 boost만큼 레벨이 더 오른다(효과 계산에서만. 선택지의 레벨은 그대로)
+  const eqBoost = id => { let b = 0; for (const e of (player && player.eq) || []) b += EQUIP[e].boost[id] || 0; return b; };
+  const ab = (id, dflt) => { const l = lvl(id); return l ? abVal(ABIL[id], l + eqBoost(id)) : dflt; };
   // 이 판에서 올린 전용 능력 레벨 합 (시너지 계산용)
   const ownedCount = () => Object.entries(player.abil).reduce((s, [id, l]) => s + (ABIL[id].only ? l : 0), 0);
   const abilSummary = () => Object.entries(player.abil).map(([id, l]) => `${ABIL[id].name} Lv${l}`).join(', ');
@@ -294,8 +345,9 @@
   function openPick() {
     // melee: true 능력은 근접 공격에만 효과가 있어서 원거리 캐릭터에게는 나오지 않는다. cap에 닿아 더 오르지 않는 능력도 뺀다
     const ranged = !!player.attackDef.ranged;
-    const pool = D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id) && !(a.not && a.not.includes(player.ch.id)));
-    if (!pool.length) { startWave(game.wave + 1); return; }
+    const pool = D.abilities.filter(a => lvl(a.id) < maxLv(a) && !(lvl(a.id) && abVal(a, lvl(a.id) + 1) === abVal(a, lvl(a.id))) && !(ranged && a.melee) && (!a.only || a.only === player.ch.id) && !(a.not && a.not.includes(player.ch.id))
+      && (skillOpenFn(a.id) || lvl(a.id) > 0));
+    if (!pool.length) { afterPick(); return; }
     // 전용 능력은 뽑힐 확률이 D.onlyWeight배(가중치 추첨, 중복 없이 3개)
     const picked = [];
     while (picked.length < 3 && pool.length) {
@@ -306,7 +358,7 @@
     game.choices = picked;
     game.picking = true;
     releaseInput();
-    ui.pickTitle.textContent = `STAGE ${game.wave + 1} CLEAR! · 능력을 하나 고르세요`;
+    ui.pickTitle.textContent = `WAVE ${game.wave + 1} CLEAR! · 능력을 하나 고르세요`;
     ui.cards.innerHTML = '';
     game.choices.forEach((a, i) => {
       const cur = lvl(a.id);
@@ -343,8 +395,88 @@
     ui.pick.classList.add('hidden');
     ui.touch.classList.remove('hidden');
     Sfx.play('pick');
-    startWave(game.wave + 1);
+    afterPick();
   }
+
+  // 능력 선택 다음: 7웨이브마다 장비상인, 아니면 바로 다음 웨이브
+  function afterPick() {
+    if ((game.wave + 1) % D.merchant.every === 0) openShop(true);
+    else startWave(game.wave + 1);
+  }
+
+  // ---------- 장비상인 (골드로 이번 판 장비를 산다) ----------
+  const shopSlots = () => D.merchant.offers + treeVal('shop');
+  const priceOf = e => Math.max(1, Math.round(e.price * treeVal('discount')));
+  function rollOffers() {
+    const pool = shuffle(D.equips.filter(e => !player.eq.includes(e.id)));
+    game.offers = pool.slice(0, shopSlots()).map(e => ({ id: e.id, sold: false }));
+  }
+  function openShop(fresh) {
+    if (fresh) rollOffers();
+    game.shopping = true;
+    releaseInput();
+    renderShop();
+    ui.shop.classList.remove('hidden');
+    ui.touch.classList.add('hidden');
+  }
+  function eqDesc(e) {
+    const S = { knock: '공격 넉백', fin: '3타째 넉백', dmg: '주는 피해%', speed: '이동 속도', range: '사거리', taken: '받는 피해%', kbTaken: '받는 넉백',
+      dash: '대시 쿨타임', cool: '능력 쿨타임', gold: '골드 획득', heal: '웨이브 클리어 회복 +', reroll: '능력 리롤 +' };
+    const parts = Object.entries(e.stats).map(([k, v]) => ADD_STATS.has(k) ? `${S[k]}${v}` : `${S[k]} x${v}`);
+    const bs = Object.entries(e.boost).map(([id, n]) => ABIL[id] ? `${ABIL[id].icon}${ABIL[id].name}` + (n > 1 ? ` +${n}` : '') : '').filter(Boolean);
+    return { stats: parts.join(', '), boost: bs.length ? `보유 시 Lv+: ${bs.join(' · ')}` : '' };
+  }
+  function eqCard(e, extra) {
+    const s = e.set && D.sets[e.set], d = eqDesc(e);
+    return `<div class="icon">${e.icon}</div><div class="ctext"><div class="cname">${e.name}</div>` +
+      (s ? `<div class="clv" style="color:${s.color}">${s.icon} ${s.name} 세트</div>` : '<div class="clv" style="color:#aaa">단품</div>') +
+      `<div class="cdesc">${d.stats}</div>` + (d.boost ? `<div class="cdesc boost">${d.boost}</div>` : '') + (extra || '') + '</div>';
+  }
+  function renderShop() {
+    ui.shopGold.textContent = `🪙 ${game.gold}`;
+    ui.shopOffers.innerHTML = '';
+    const full = player.eq.length >= D.merchant.maxSlots;
+    game.offers.forEach((o, i) => {
+      const e = EQUIP[o.id], price = priceOf(e);
+      const b = document.createElement('button');
+      b.className = 'card eq' + (o.sold ? ' sold' : '');
+      b.disabled = o.sold || full || game.gold < price;
+      b.innerHTML = eqCard(e, `<div class="price">${o.sold ? '구매 완료' : `🪙 ${price}`}</div>`);
+      b.addEventListener('click', () => buyEquip(i));
+      ui.shopOffers.appendChild(b);
+    });
+    ui.shopReroll.textContent = `🔄 새로 진열 (🪙 ${D.merchant.rerollCost})`;
+    ui.shopReroll.disabled = game.gold < D.merchant.rerollCost;
+    const sets = {};
+    for (const id of player.eq) { const s = EQUIP[id].set; if (s) sets[s] = (sets[s] || 0) + 1; }
+    ui.shopEq.innerHTML = `<div class="histTitle">내 장비 (${player.eq.length}/${D.merchant.maxSlots})${full ? ' · 장비 칸이 꽉 찼어요' : ''}</div>` +
+      (player.eq.length ? `<div class="eqIcons">${player.eq.map(id => `<span title="${EQUIP[id].name}">${EQUIP[id].icon}</span>`).join('')}</div>` : '<div class="chatNote">아직 장비가 없어요</div>') +
+      Object.entries(sets).map(([s, n]) => `<div class="chatNote" style="color:${D.sets[s].color}">${D.sets[s].icon} ${D.sets[s].name} ${n}/3` +
+        (n >= 2 ? ` · ${D.sets[s].desc[0]}` : '') + (n >= 3 ? ` · ${D.sets[s].desc[1]}` : '') + '</div>').join('');
+  }
+  function buyEquip(i) {
+    const o = game.offers[i], e = o && EQUIP[o.id];
+    if (!e || o.sold || player.eq.length >= D.merchant.maxSlots || game.gold < priceOf(e)) return;
+    game.gold -= priceOf(e);
+    player.eq.push(e.id);
+    o.sold = true;
+    if (e.stats.reroll) game.rerolls += e.stats.reroll;
+    if (e.boost.heavy) player.mass = D.player.mass * ab('heavy', 1);
+    Sfx.play('pick');
+    renderShop();
+  }
+  $('shopReroll').addEventListener('click', () => {
+    if (game.gold < D.merchant.rerollCost) return;
+    game.gold -= D.merchant.rerollCost;
+    rollOffers(); renderShop();
+  });
+  $('shopLeave').addEventListener('click', () => {
+    if (!game.shopping) return;
+    game.shopping = false;
+    ui.shop.classList.add('hidden');
+    ui.touch.classList.remove('hidden');
+    startWave(game.wave + 1);
+  });
 
   // 보유 능력 아이콘을 누르면 일시정지하고 능력 설명을 보여준다
   function openSkillInfo() {
@@ -357,7 +489,15 @@
       d.className = 'card';
       d.style.cssText = 'cursor:default;width:100%;max-width:none;flex:none;flex-direction:row;align-items:center;text-align:left';
       d.innerHTML = `<div class="icon">${a.icon}</div><div class="ctext"><div class="cname">${a.only ? '⭐ ' : ''}${a.name}</div>` +
-        `<div class="clv">Lv ${l}</div><div class="cdesc">${a.desc(abVal(a, l))}</div></div>`;
+        `<div class="clv">Lv ${l}${eqBoost(id) ? ` (+${eqBoost(id)} 장비)` : ''}</div><div class="cdesc">${a.desc(ab(id))}</div></div>`;
+      ui.skillCards.appendChild(d);
+    }
+    // 이번 판 장비
+    for (const id of player.eq) {
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.style.cssText = 'cursor:default;width:100%;max-width:none;flex:none;flex-direction:row;align-items:center;text-align:left';
+      d.innerHTML = eqCard(EQUIP[id]);
       ui.skillCards.appendChild(d);
     }
     ui.skillInfo.classList.remove('hidden');
@@ -506,22 +646,15 @@
   }
   let records = loadRecords();
 
-  // ---------- 캐릭터 해금(업적) ----------
+  // ---------- 캐릭터 해금 (성장 트리의 캐릭터 노드) ----------
+  // 예전 업적 방식으로 이미 해금한 캐릭터(bigguy.chars)는 그대로 쓸 수 있다
   const CHARS = D.characters;
   const charById = id => CHARS.find(c => c.id === id) || CHARS[0];
-  let owned = new Set([CHARS[0].id, ...[].concat(storage.get('bigguy.chars', [])).filter(id => CHARS.some(c => c.id === id))]);
-  let selChar = owned.has(storage.get('bigguy.char', '')) ? storage.get('bigguy.char', '') : CHARS[0].id;
-  const saveChars = () => {
-    storage.set('bigguy.chars', [...owned]); storage.set('bigguy.char', selChar);
-  };
-  const statOf = stat => stat === 'bestScore' ? (records.best ? records.best.score : 0) : (records[stat] || 0);
-  // 업적을 달성한 캐릭터를 해금하고, 새로 해금된 캐릭터 목록을 돌려준다
-  function checkUnlocks() {
-    const fresh = CHARS.filter(c => !owned.has(c.id) && (!c.unlock || statOf(c.unlock.stat) >= c.unlock.need));
-    fresh.forEach(c => owned.add(c.id));
-    if (fresh.length) saveChars();
-    return fresh;
-  }
+  const legacyOwned = new Set([].concat(storage.get('bigguy.chars', [])));
+  const charNode = id => D.tree.find(n => n.type === 'char' && n.char === id);
+  const charOwned = id => id === CHARS[0].id || legacyOwned.has(id) || (charNode(id) && hasNode(charNode(id).id));
+  let selChar = charOwned(storage.get('bigguy.char', '')) ? storage.get('bigguy.char', '') : CHARS[0].id;
+  const saveChars = () => storage.set('bigguy.char', selChar);
 
   const fmtTime = s => `${Math.floor(s / 60)}분 ${Math.floor(s % 60)}초`;
   const fmtDate = t => {
@@ -659,7 +792,7 @@
   }
 
   // ---------- 캐릭터 선택 화면 ----------
-  function updateGoldUi() {
+  function updateCharUi() {
     ui.charNow.textContent = charById(selChar).name;
   }
 
@@ -699,10 +832,10 @@
   }
 
   function renderChars() {
-    updateGoldUi();
+    updateCharUi();
     ui.charList.innerHTML = '';
     for (const ch of CHARS) {
-      const has = owned.has(ch.id), sel = ch.id === selChar;
+      const has = charOwned(ch.id), sel = ch.id === selChar;
       const card = document.createElement('div');
       card.className = 'charCard' + (sel ? ' sel' : '') + (has ? '' : ' locked');
       const cv = document.createElement('canvas');
@@ -718,11 +851,11 @@
       if (sel) { btn.textContent = '선택됨'; btn.disabled = true; }
       else if (has) { btn.textContent = '선택'; btn.addEventListener('click', () => { selChar = ch.id; saveChars(); renderChars(); }); }
       else {
-        const u = ch.unlock;
+        const n = charNode(ch.id);
         btn.textContent = '🔒 잠김';
         btn.disabled = true;
         const un = document.createElement('div'); un.className = 'charUnlock';
-        un.textContent = `🏅 ${u.text} (${Math.min(statOf(u.stat), u.need)}/${u.need})`;
+        un.textContent = n ? `🌳 성장 트리에서 해금 (💎 ${n.cost})` : '🔒 잠김';
         info.appendChild(un);
       }
       info.prepend(nm, ds, sk);
@@ -734,8 +867,110 @@
   }
   for (const id of ['btnChars', 'btnChars2']) $(id).addEventListener('click', () => { Sfx.unlock(); openChars(); });
   $('charClose').addEventListener('click', () => { ui.chars.classList.add('hidden'); ui.btnChat.classList.remove('hidden'); });
-  checkUnlocks();
-  updateGoldUi();
+  updateCharUi();
+
+  // ---------- 로비: 다이아 표시, 스테이지 선택, 성장 트리, 장비 도감 ----------
+  function updateLobby() {
+    ui.titleDia.textContent = `💎 ${meta.dia}`;
+  }
+  const lobbyPanels = () => [ui.stages, ui.tree, ui.codex, ui.chars, ui.records];
+  function showPanel(el) {
+    for (const p of lobbyPanels()) p.classList.add('hidden');
+    el.classList.remove('hidden');
+    ui.btnChat.classList.add('hidden');
+  }
+  function closePanel(el) {
+    el.classList.add('hidden');
+    ui.btnChat.classList.remove('hidden');
+    updateLobby();
+  }
+
+  function openStages() {
+    saveName();
+    ui.stageList.innerHTML = '';
+    for (const S of D.stages) {
+      const open = stageOpen(S), done = meta.cleared.includes(S.id), best = meta.best[S.id] || 0;
+      const b = document.createElement('button');
+      b.className = 'stageCard' + (open ? '' : ' locked') + (done ? ' done' : '');
+      b.disabled = !open;
+      b.style.setProperty('--c', S.color);
+      b.innerHTML = `<div class="stName">${open ? '' : '🔒 '}${S.name}${done ? ' ✅' : ''}</div>` +
+        `<div class="stSub">${S.sub} · ${S.endless ? '끝없는 웨이브' : `${S.waves}웨이브`} · 적 강화 x${S.mul}</div>` +
+        `<div class="stSub">${open ? (S.endless ? `최고 ${best}웨이브` : `최고 ${best}/${S.waves}웨이브`) : `${STAGE[S.id - 1].name}를 클리어하면 열려요`}</div>`;
+      b.addEventListener('click', () => { Sfx.unlock(); startGame(S.id); });
+      ui.stageList.appendChild(b);
+    }
+    showPanel(ui.stages);
+  }
+  $('stagesClose').addEventListener('click', () => closePanel(ui.stages));
+
+  // 성장 트리: 가운데에서 바깥으로 뻗는 방사형. 노드 위치는 가지 각도 + lane, 반지름 = depth
+  const nodePos = n => {
+    if (!n.branch) return { x: 0, y: 0 };
+    const a = (D.treeBranches[n.branch].angle + (n.lane || 0) * 13) * Math.PI / 180, r = n.depth * 64;
+    return { x: Math.cos(a) * r, y: Math.sin(a) * r };
+  };
+  const nodeDesc = n => n.desc || (n.type === 'char' ? `캐릭터 [${charById(n.char).name}] 해금` :
+    n.type === 'skill' ? `능력 해금: ${n.skills.map(id => ABIL[id].icon + ABIL[id].name).join(', ')}` : '');
+  const nodeBuyable = n => !hasNode(n.id) && (!n.req || hasNode(n.req));
+  let treeSel = 'root';
+  function renderTree() {
+    ui.treeDia.textContent = `💎 ${meta.dia}`;
+    let lines = '', dots = '';
+    for (const [k, b] of Object.entries(D.treeBranches)) {
+      const a = b.angle * Math.PI / 180;
+      dots += `<text x="${Math.cos(a) * 322}" y="${Math.sin(a) * 322 + 5}" class="brName" fill="${b.color}">${b.icon} ${b.name}</text>`;
+    }
+    for (const n of D.tree) {
+      if (!n.req) continue;
+      const p = nodePos(n), q = nodePos(TREE[n.req]), on = hasNode(n.id);
+      lines += `<line x1="${q.x}" y1="${q.y}" x2="${p.x}" y2="${p.y}" class="edge${on ? ' on' : ''}" stroke="${on ? D.treeBranches[n.branch].color : ''}"/>`;
+    }
+    for (const n of D.tree) {
+      const p = nodePos(n), own = hasNode(n.id), can = nodeBuyable(n), col = n.branch ? D.treeBranches[n.branch].color : '#ffd84a';
+      const cls = own ? 'own' : can ? 'can' : 'lock';
+      dots += `<g class="node ${cls}${n.id === treeSel ? ' sel' : ''}" data-id="${n.id}" transform="translate(${p.x},${p.y})">` +
+        `<circle r="${n.branch ? 21 : 26}" style="--c:${col}"/><text y="7">${n.icon}</text></g>`;
+    }
+    ui.treeSvg.innerHTML = lines + dots;
+    for (const g of ui.treeSvg.querySelectorAll('.node')) g.addEventListener('click', () => { treeSel = g.dataset.id; renderTree(); });
+    const n = TREE[treeSel], own = hasNode(n.id), can = nodeBuyable(n);
+    ui.treeInfo.innerHTML = `<div class="tiName">${n.icon} ${n.name}${n.branch ? ` <span class="dim">· ${D.treeBranches[n.branch].name}</span>` : ''}</div>` +
+      `<div class="tiDesc">${nodeDesc(n)}</div>` +
+      (own ? '<div class="tiState ok">✅ 보유 중</div>' : can ? '' : `<div class="tiState">🔒 먼저 [${TREE[n.req].name}]을(를) 사야 해요</div>`);
+    if (!own && can) {
+      const b = document.createElement('button');
+      b.className = 'big'; b.textContent = `💎 ${n.cost} 로 구매`;
+      b.disabled = meta.dia < n.cost;
+      b.addEventListener('click', () => {
+        if (meta.dia < n.cost || !nodeBuyable(n)) return;
+        meta.dia -= n.cost; meta.tree.push(n.id); saveMeta();
+        Sfx.unlock(); Sfx.play('pick');
+        renderTree();
+      });
+      ui.treeInfo.appendChild(b);
+      if (meta.dia < n.cost) ui.treeInfo.insertAdjacentHTML('beforeend', '<div class="tiState">다이아가 부족해요. 5웨이브마다 나오는 보스를 처치하면 받아요</div>');
+    }
+  }
+  $('btnTree').addEventListener('click', () => { Sfx.unlock(); renderTree(); showPanel(ui.tree); });
+  $('treeClose').addEventListener('click', () => closePanel(ui.tree));
+
+  // 장비 도감: 모든 장비와 세트 효과
+  function renderCodex() {
+    let html = '';
+    const groups = [...Object.keys(D.sets), null];
+    for (const s of groups) {
+      const list = D.equips.filter(e => (e.set || null) === s);
+      const S = s && D.sets[s];
+      html += `<div class="cxHead" style="color:${S ? S.color : '#ccc'}">${S ? `${S.icon} ${S.name} 세트` : '🎒 단품 장비'}</div>`;
+      if (S) html += `<div class="chatNote">2개: ${S.desc[0]} · 3개: ${S.desc[1]}</div>`;
+      html += '<div class="cxGrid">' + list.map(e => `<div class="card eq">${eqCard(e, `<div class="price">🪙 ${e.price}</div>`)}</div>`).join('') + '</div>';
+    }
+    ui.codexList.innerHTML = html;
+  }
+  $('btnCodex').addEventListener('click', () => { renderCodex(); showPanel(ui.codex); });
+  $('codexClose').addEventListener('click', () => closePanel(ui.codex));
+  updateLobby();
 
   // ---------- 게임 흐름 ----------
   function makeEntity(kind, def, x, y) {
@@ -755,28 +990,47 @@
       player.abil[ch.skill] = 1;
       if (ch.skill === 'second_wind') player.saves++;
     }
+    player.eq = [];
+    player.saves += treeVal('saves');
     enemies = []; particles = []; items = []; shots = []; eshots = []; zones = []; webs = [];
-    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false, rerolls: 1, choices: [], fireworks: [] });
+    Object.assign(game, { wave: 0, score: 0, kills: 0, time: 0, queue: [], spawnT: 0, meatT: -1, itemT: -1, clearT: -1, overT: 0, filled: -1, chainN: 0, chainT: 0, banner: null, picking: false,
+      rerolls: 1 + st('reroll', true), choices: [], fireworks: [], gold: treeVal('startGold'), shopping: false, offers: [], diaGot: 0 });
     Object.assign(fx, { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 });
   }
 
-  function startGame() {
+  function startGame(stageId) {
+    const S = STAGE[stageId] || D.stages[0];
+    if (!stageOpen(S)) return;
+    game.stage = S;
     closeSkillInfo();
     saveName();
     resetGame();
     game.state = 'play';
-    for (const el of [ui.title, ui.over, ui.pick, ui.records, ui.chars]) el.classList.add('hidden');
+    for (const el of [ui.title, ui.over, ui.pick, ui.records, ui.chars, ui.stages, ui.tree, ui.codex, ui.shop]) el.classList.add('hidden');
     ui.touch.classList.remove('hidden');
     startWave(0);
   }
 
-  function gameOver() {
+  // 게임 끝: 떨어졌을 때(gameOver) 또는 스테이지의 마지막 웨이브를 클리어했을 때(stageClear). 장비와 골드는 여기서 사라진다
+  function gameOver() { finishRun(false); }
+  function stageClear() { finishRun(true); }
+  function finishRun(cleared) {
     game.state = 'over';
-    const r = records;
+    game.shopping = false; game.picking = false;
+    const r = records, S = game.stage;
     const entry = {
       date: Date.now(), score: game.score, wave: game.wave + 1, kills: game.kills, time: Math.round(game.time),
-      abil: Object.entries(player.abil),
+      abil: Object.entries(player.abil), stage: S.id, cleared,
     };
+    meta.best[S.id] = Math.max(meta.best[S.id] || 0, cleared ? S.waves : game.wave);
+    let opened = null;
+    if (cleared && !meta.cleared.includes(S.id)) {
+      meta.cleared.push(S.id);
+      opened = STAGE[S.id + 1] || null;
+    }
+    saveMeta();
+    ui.overTitle.textContent = cleared ? `${S.name} 클리어!` : '낙하!';
+    ui.overTitle.classList.toggle('clear', cleared);
     const isNew = !r.best || entry.score > r.best.score;
     if (isNew) r.best = entry;
     r.bestWave = Math.max(r.bestWave, entry.wave);
@@ -786,12 +1040,13 @@
     r.history.unshift(entry);
     r.history = r.history.slice(0, 30);
     storage.set('bigguy.records', r);
-    const fresh = checkUnlocks();
 
     ui.overStats.innerHTML = (isNew && entry.score > 0 ? '<div class="newrec">🏆 신기록!</div>' : '') +
-      `점수 <b>${entry.score}</b> · WAVE ${entry.wave} · 처치 ${entry.kills} · ${fmtTime(entry.time)}<br>` +
+      `${S.name} · 점수 <b>${entry.score}</b> · WAVE ${entry.wave} · 처치 ${entry.kills} · ${fmtTime(entry.time)}<br>` +
       `<span class="dim">최고 기록 ${r.best.score} · 총 ${r.plays}판 플레이</span><br>` +
-      (fresh.length ? `<span class="goldLine">🏅 새 캐릭터 해금: ${fresh.map(c => c.name).join(', ')}</span>` : '') +
+      `<span class="goldLine">💎 이번 판 다이아 +${game.diaGot} (보유 ${meta.dia})</span><br>` +
+      (opened ? `<span class="goldLine">🔓 ${opened.name} 개방!</span><br>` : '') +
+      (player.eq.length ? `<div class="dim">장비는 사라졌어요: ${player.eq.map(id => EQUIP[id].icon).join(' ')}</div>` : '') +
       (entry.abil.length ? `<div class="abrow">${icons(entry.abil)}</div>` : '') +
       '<div class="rankLine" id="rankLine"></div>';
     const rankLine = $('rankLine');
@@ -805,34 +1060,43 @@
     ui.touch.classList.add('hidden');
   }
 
-  function waveSpec(i) {
-    if (i < D.waves.length) return D.waves[i];
-    // 무한 웨이브: 마릿수는 고정, 종류는 가중치대로 무작위 (보스는 반복하지 않는다)
-    const E = D.endless, kinds = Object.keys(E.pool).filter(k => D.enemies[k]);
+  // 같은 스테이지·웨이브는 항상 같은 구성이 나오도록 번호로 정하는 난수 (mulberry32)
+  function seeded(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // 웨이브 구성 {적 id: 마릿수}. boss: 1 은 그 스테이지의 고정 보스 (stageBoss)
+  // 1~30웨이브는 data.js waves 표, 31웨이브부터와 무한 스테이지는 endless.pool에서 뽑는다
+  function waveSpec(i, S = game.stage) {
+    if (!S.endless && i < D.waves.length) return D.waves[i];
+    const E = D.endless, G = D.gen, kinds = Object.keys(E.pool).filter(k => D.enemies[k]);
     const total = kinds.reduce((t, k) => t + E.pool[k], 0);
-    const spec = {};
-    for (let n = 0; n < E.count; n++) {
-      let r = Math.random() * total, k = kinds[0];
+    const bossWave = (i + 1) % 5 === 0;
+    const count = bossWave ? G.bossAdds : S.endless ? E.count : Math.min(G.max, G.base + Math.floor((i - D.waves.length) / G.every));
+    const rnd = seeded(S.id * 100003 + i * 7919 + 17);
+    const spec = bossWave ? { boss: 1 } : {};
+    for (let n = 0; n < count; n++) {
+      let r = rnd() * total, k = kinds[0];
       for (const c of kinds) { r -= E.pool[c]; if (r <= 0) { k = c; break; } }
       spec[k] = (spec[k] || 0) + 1;
     }
     return spec;
   }
+  // 웨이브 i(0부터)의 고정 보스: 5웨이브마다 stages[].bosses를 순서대로 (무한은 반복)
+  const bossIndex = i => Math.floor((i + 1) / 5) - 1;
+  const stageBoss = (i, S = game.stage) => S.bosses[bossIndex(i) % S.bosses.length];
 
-  // 스테이지 시스템: 스테이지의 적을 모두 처치하면 클리어, 능력을 고르고 다음 스테이지로 간다. game.wave는 현재 스테이지-1이다
-  // 지금 스테이지의 적 구성을 queue에 채운다. 보스는 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
-  // 지금 스테이지에 나올 수 있는 보스 중 하나를 무작위로 고른다
-  function randomBoss() {
-    const st = game.wave + 1;
-    const ids = Object.keys(D.enemies).filter(k => { const d = D.enemies[k]; return d.boss && d.stages && st >= d.stages[0] && st <= d.stages[1]; });
-    return ids.length ? ids[Math.floor(Math.random() * ids.length)] : 'boss_king';
-  }
-
+  // 지금 웨이브의 적 구성을 queue에 채운다. 보스는 먼저 나온다 (queue는 뒤에서부터 꺼낸다)
   function fillQueue() {
     const spec = waveSpec(game.wave);
     const isBoss = k => D.enemies[k] && D.enemies[k].boss;
     const q = [];
-    for (const k in spec) for (let n = 0; n < spec[k]; n++) q.push(k === 'boss_random' ? randomBoss() : k);
+    for (const k in spec) for (let n = 0; n < spec[k]; n++) q.push(k === 'boss' ? stageBoss(game.wave) : k);
     shuffle(q);
     const first = game.filled !== game.wave;
     game.filled = game.wave;
@@ -842,7 +1106,7 @@
 
   function startWave(i) {
     game.wave = i;
-    // 아이템 효과는 스테이지가 끝날 때까지만 간다
+    // 아이템 효과는 웨이브가 끝날 때까지만 간다
     for (const k of ['starT', 'hasteT', 'powerT']) player[k] = 0;
     fillQueue();
     const boss = game.queue.filter(k => D.enemies[k] && D.enemies[k].boss);
@@ -851,17 +1115,19 @@
     game.clearT = -1;
     game.meatT = (i + 1) % D.meat.every === 0 ? D.meat.delay : -1;
     game.itemT = Math.random() < D.itemDrop.chance ? rand(D.itemDrop.delay[0], D.itemDrop.delay[1]) : -1;
-    game.banner = boss.length ? { text: `BOSS STAGE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `STAGE ${i + 1}`, t: 2, max: 2 };
-    if (endlessN()) game.banner.sub = `적 맷집 x${(1 + D.endless.tough * hardN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
+    const S = game.stage;
+    game.banner = boss.length ? { text: `BOSS WAVE ${i + 1}`, t: 2.4, max: 2.4 } : { text: `WAVE ${i + 1}`, t: 2, max: 2 };
+    game.banner.sub = `${S.name}${S.waves ? ` · ${i + 1}/${S.waves}` : ''}` + (S.mul > 1 ? ` · 적 강화 x${S.mul}` : '');
+    if (endlessN()) game.banner.sub += ` · 맷집 x${(1 + D.endless.tough * hardN()).toFixed(2)} · 정예 ${Math.round(eliteChance() * 100)}%`;
     Sfx.play('wave');
   }
 
-  // 30웨이브 이후 몇 번째 웨이브인지 (그 전은 0)
-  const endlessN = () => Math.max(0, game.wave - D.waves.length + 1);
-  // 난이도 단계: 스테이지 late.from 이후로는 n이 boost배 빨리 오른다
+  // 무한 스테이지에서 몇 번째 웨이브인지 (다른 스테이지는 0)
+  const endlessN = () => game.stage.endless ? game.wave + 1 : 0;
+  // 난이도 단계: 무한 스테이지 late.from 웨이브 이후로는 n이 boost배 빨리 오른다
   const hardN = () => {
     const n = endlessN(), L = D.endless.late;
-    return L ? n + Math.max(0, game.wave + 1 - L.from) * (L.boost - 1) : n;
+    return L && n ? n + Math.max(0, n - L.from) * (L.boost - 1) : n;
   };
   const eliteChance = () => Math.min(D.endless.eliteMax, D.endless.elite + D.endless.eliteStep * hardN());
 
@@ -881,7 +1147,9 @@
     e.slamT = fs('slam'); e.sumT = fs('summon'); e.zoneT = fs('zone');
     if (def.boss) text(e.x, e.y, 120, `${def.name} 등장!`, '#ff6b6b', 28);
     e.state = 'spawn'; e.z = def.boss ? 520 : -80; e.face = def.boss ? Math.atan2(player.y, player.x) : bestA + Math.PI;
-    if (def.boss) { e.drop = true; e.mass *= 1 + 0.05 * Math.max(0, game.wave + 1 - (def.stages ? def.stages[0] : 0)); } // 보스는 스테이지가 높을수록 묵직해진다
+    if (def.boss) { e.drop = true; e.mass *= 1 + D.bossStep * Math.max(0, bossIndex(game.wave)); } // 보스는 그 스테이지에서 뒤에 나올수록 묵직해진다
+    // 스테이지 강화: 몸무게(덜 날아감)와 공격력(피해%, 넉백)이 스테이지마다 2배
+    e.mass *= game.stage.mul; e.atkMul = game.stage.mul;
     if (def.blink) e.blinkT = def.blink.every * rand(0.5, 1);
     if (def.web) e.webT = def.web.every * rand(0.4, 1);
     if (def.phase) { e.phaseC = def.phase.every * rand(0.3, 0.9); e.invulnT = 0; }
@@ -904,17 +1172,23 @@
     if (!game.queue.length && !alive) {
       if (game.clearT < 0) {
         game.clearT = 1.4;
-        if (!game.banner || !game.banner.boss) game.banner = { text: `STAGE ${game.wave + 1} CLEAR!`, t: 1.4, max: 1.4 };
+        // 골드 정산: 웨이브마다 base + perWave x 웨이브번호 (골드 획득 배율 적용)
+        const g = Math.round((D.gold.base + D.gold.perWave * (game.wave + 1)) * st('gold'));
+        game.gold += g;
+        text(player.x, player.y, player.r * 4, `🪙 +${g}`, '#ffd84a', 24);
+        if (!game.banner || !game.banner.boss) game.banner = { text: `WAVE ${game.wave + 1} CLEAR!`, sub: `🪙 +${g}`, t: 1.4, max: 1.4 };
         Sfx.play('fanfare');
       }
       if ((game.clearT -= dt) <= 0) {
         game.clearT = -1;
-        const heal = ab('recovery', 0);
+        const heal = ab('recovery', 0) + st('heal');
         if (heal && player.pct > 0) {
           player.pct = Math.max(0, player.pct - heal);
           text(player.x, player.y, player.r * 2.6, `-${heal}%`, '#7dff9a', 24);
         }
-        // 10스테이지 클리어마다 리롤 1회 충전
+        // 마지막 웨이브를 클리어하면 스테이지 클리어
+        if (game.stage.waves && game.wave + 1 >= game.stage.waves) { stageClear(); return; }
+        // 10웨이브 클리어마다 리롤 1회 충전
         if ((game.wave + 1) % 10 === 0) game.rerolls++;
         openPick();
       }
@@ -945,9 +1219,10 @@
     text(0, 0, 200, '고기 투하!', '#ffb36b', 24);
   }
 
-  // 필드 아이템 (data.js의 items). id를 주면 그 아이템, 없으면 가중치대로 무작위
+  // 필드 아이템 (data.js의 items). id를 주면 그 아이템, 없으면 가중치대로 무작위. 성장 트리에서 해금하지 않은 아이템은 나오지 않는다
   function dropItem(id) {
-    const list = D.items, total = list.reduce((t, it) => t + it.weight, 0);
+    const list = D.items.filter(it => itemOpen(it.id)), total = list.reduce((t, it) => t + it.weight, 0);
+    if (!list.length) return;
     let def = list.find(it => it.id === id);
     if (!def) {
       let r = Math.random() * total;
@@ -1082,7 +1357,7 @@
     const finisher = p.combo === cycle;
     const spin = finisher && !a.ranged && lvl('cyclone') > 0;
     const ranged = finisher && !!a.ranged;
-    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1)) * (finisher && a.finRange || 1) * (finisher ? ab('g_sweep', 1) : 1);
+    const range = ranged ? a.ranged.range : a.range * ab('long_reach', 1) * st('range') * (spin ? ab('cyclone') : 1) * (1 + (p.grow - 1) * (a.growReach ?? 1)) * (finisher && a.finRange || 1) * (finisher ? ab('g_sweep', 1) : 1);
     p.atk = { def: a, t: 0, hit: new Set(), finisher, spin: spin && !ranged, ranged, fired: false, shocked: false, range, arc: spin && !ranged ? 360 : a.arc + (ranged ? 0 : ab('wide_swing', 0) + (finisher ? ab('w_lariat', 0) : 0)),
       pose: p.idleT >= 1.5 };
     p.idleT = 0;
@@ -1116,8 +1391,8 @@
     // 전용 능력: 전용기술 발사체 수 증가(구슬 분열, 점사, 다발 사격), 넉백/폭발/관통 강화
     const extra = a.finisher ? Math.round(ab('m_split', 0) + ab('so_burst', 0) + ab('ar_multi', 0)) : 0;
     const n = ((fin && fin.count) || 1) + extra, spread = Math.max((fin && fin.spread) || 0, extra ? 0.22 * (n - 1) : 0);
-    const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-    let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul * ab('so_snipe', 1) * ab('ar_power', 1) : 1) / (n > 1 ? 1.4 : 1);
+    const dmg = a.def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1) * st('dmg');
+    let kb = a.def.knockback * ab('iron_fist', 1) * (a.finisher ? a.def.finisherMul * ab('so_snipe', 1) * ab('ar_power', 1) * st('fin') : 1) / (n > 1 ? 1.4 : 1) * st('knock');
     const boom = a.finisher ? ((fin && fin.boom) || 0) + (fin && fin.boom ? ab('m_boom', 0) : 0) + ab('so_grenade', 0) : 0;
     const pierce = a.finisher && (!!(fin && fin.pierce) || lvl('so_pierce') > 0 || lvl('ar_pierce') > 0);
     if (a.finisher && lvl('m_ward')) p.inv = Math.max(p.inv, ab('m_ward'));
@@ -1250,7 +1525,7 @@
 
   // 특별 스킬: every초마다 저절로 발동한다(p.pt[id] = 쌓인 시간)
   // 쿨타임 감소 능력(skill_cool): 몇 초마다 발동하는 능력의 대기 시간 배율
-  const coolMul = () => ab('skill_cool', 1);
+  const coolMul = () => ab('skill_cool', 1) * st('cool');
   function specialReady(p, id, dt) {
     if (!lvl(id)) return false;
     p.pt[id] = (p.pt[id] || 0) + dt;
@@ -1431,7 +1706,7 @@
 
     // 대시: 쿨타임이 차면 버튼으로 바라보는(또는 움직이는) 방향으로 돌진한다
     const DS = D.player.dash;
-    const dashFull = DS.cooldown * ab('dash_cool', 1) * (p.ch.dashCool || 1);
+    const dashFull = DS.cooldown * ab('dash_cool', 1) * (p.ch.dashCool || 1) * st('dash');
     if (p.dashCd > 0) p.dashCd -= dt;
     if (p.hitstun <= 0 && p.dashT <= 0 && p.dashCd <= 0 && consumeDash()) {
       const mv = moveInput();
@@ -1485,7 +1760,7 @@
       const mv = moveInput();
       const m = Math.hypot(mv.x, mv.y);
       if (p.slowT > 0) p.slowT -= dt;
-      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * haste * (p.atk ? Math.min(1, 0.35 * ab('n_swift', 1)) : 1) * (p.slowT > 0 ? p.slowMul : 1);
+      const speed = D.player.speed * (p.ch.speed || 1) * ab('quick_feet', 1) * st('speed') * haste * (p.atk ? Math.min(1, 0.35 * ab('n_swift', 1)) : 1) * (p.slowT > 0 ? p.slowMul : 1);
       if (m < 0.2) p.idleT = (p.idleT || 0) + dt; else p.idleT = 0;
       p.x += mv.x * speed * dt;
       p.y += mv.y * speed * dt;
@@ -1518,8 +1793,8 @@
         let nx = dx / (d || 1) + fxv * mix, ny = dy / (d || 1) + fyv * mix;
         const nl = Math.hypot(nx, ny) || 1;
         nx /= nl; ny /= nl;
-        const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1);
-        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul : 1) * p.grow * power;
+        const dmg = def.damage * ab('pump', 1) * (a.finisher ? 1.5 : 1) * st('dmg');
+        let kb = def.knockback * ab('iron_fist', 1) * (a.finisher ? def.finisherMul * st('fin') : 1) * p.grow * power * st('knock');
         kb *= 1 + p.pct / 100 * ab('berserk', 0);
         if (e.pct >= 100) kb *= ab('execute', 1);
         if (Math.hypot(p.x, p.y) > R * 0.7) kb *= ab('last_stand', 1);
@@ -1657,9 +1932,10 @@
       Sfx.play('pick');
       return;
     }
-    const dmg = A.damage * (D.enemyAttackMul || 1) * ab('tough', 1) * (p.atk ? ab('x_weave', 1) : 1);
+    const emul = (D.enemyAttackMul || 1) * ((e && e.atkMul) || 1);
+    const dmg = A.damage * emul * ab('tough', 1) * (p.atk ? ab('x_weave', 1) : 1) * st('taken');
     p.pct += dmg;
-    let power = A.force * (D.enemyAttackMul || 1) * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1);
+    let power = A.force * emul * (1 + p.pct / 80) / p.mass * ab('b_belly', 1) * (p.atk ? ab('s_stance', 1) : 1) * st('kbTaken');
     p.counterT = lvl('x_counter') ? 4 : 0;
     // 기둥 중앙 근처에서는 한 방에 밖으로 날아가지 않게, 가장자리 직전까지만 밀린다
     if (p.pct < 198 && Math.hypot(p.x, p.y) < R * 0.5) {
@@ -1957,7 +2233,11 @@
 
   // 보스 처치: 팡파레와 함께 기둥 위 하늘에 폭죽이 연달아 터진다
   function bossDefeated(e) {
-    game.banner = { text: '🎉 BOSS 격파! 🎉', sub: e.def.name, color: '#ffd84a', t: 2.6, max: 2.6, boss: true };
+    // 다이아: (웨이브번호 / 5) x 스테이지번호 (무한 = 4), 성장 트리 보석 감정사로 늘어난다
+    const n = Math.round(Math.max(1, Math.floor((game.wave + 1) / D.diamond.per)) * game.stage.id * treeVal('dia'));
+    meta.dia += n; game.diaGot += n; saveMeta();
+    text(e.x, e.y, 120, `💎 +${n}`, '#8fe8ff', 30);
+    game.banner = { text: '🎉 BOSS 격파! 🎉', sub: `${e.def.name} · 💎 +${n}`, color: '#ffd84a', t: 2.6, max: 2.6, boss: true };
     for (let i = 0; i < 9; i++) game.fireworks.push({ t: 0.25 + i * 0.22 + rand(0, 0.1), x: rand(-0.8, 0.8) * R, y: rand(-0.7, 0.3) * R });
     fx.shake = Math.max(fx.shake, 16);
     Sfx.play('fanfare');
@@ -3005,10 +3285,14 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 18px system-ui, sans-serif';
-    ctx.fillText(`STAGE ${game.wave + 1}`, 16, 14);
+    const S = game.stage;
+    ctx.fillText(`${S.endless ? '무한' : S.id + '스테이지'} · WAVE ${game.wave + 1}${S.waves ? '/' + S.waves : ''}`, 16, 14);
     const left = game.queue.length + enemies.filter(e => !e.falling).length;
     ctx.textAlign = 'right';
     ctx.fillText(`남은 적 ${left}`, W - 16, 60);
+    ctx.font = '800 15px system-ui, sans-serif';
+    ctx.fillStyle = '#ffd84a';
+    ctx.fillText(`🪙 ${game.gold}   💎 ${meta.dia}`, W - 16, 84);
     ctx.textAlign = 'left';
     ctx.font = '600 15px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
@@ -3040,7 +3324,19 @@
       ix += 34;
       if (ix > maxX) { ix = 16; iy += 28; }
     }
-    // 아이템 지속 효과 (스테이지가 끝날 때까지)
+    // 이번 판 장비 (누르면 능력 설명과 함께 보인다)
+    if (player.eq.length) {
+      if (ix > 16) { ix = 16; iy += 30; }
+      for (const id of player.eq) {
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.font = '18px system-ui, sans-serif'; ctx.fillStyle = '#ffffff';
+        ctx.fillText(EQUIP[id].icon, ix, iy);
+        abilRects.push({ x: ix - 3, y: iy - 3, w: 30, h: 26 });
+        ix += 28;
+        if (ix > maxX) { ix = 16; iy += 26; }
+      }
+    }
+    // 아이템 지속 효과 (웨이브가 끝날 때까지)
     if (ix > 16) { ix = 16; iy += 32; }
     for (const [k, id] of [['starT', 'star'], ['hasteT', 'drink'], ['powerT', 'protein']]) {
       if (!(player[k] > 0)) continue;
@@ -3124,7 +3420,7 @@
     fx.zoom *= Math.exp(-5 * rdt);
     for (const m of motes) { m.y -= m.v * rdt; if (m.y < 0) { m.y = 1; m.x = Math.random(); } }
 
-    if (game.state !== 'play' || game.picking || chatOpen || skillOpen) return;
+    if (game.state !== 'play' || game.picking || game.shopping || chatOpen || skillOpen) return;
     if (fx.hitstop > 0) { fx.hitstop -= rdt; return; }
     let ts = 1;
     if (fx.slow > 0) { fx.slow -= rdt; ts = 0.3; }
