@@ -533,21 +533,21 @@ window.GAME_DATA = {
   tree: [
     { id: 'root', icon: '⭐', name: '시작', cost: 0, branch: null, depth: 0, desc: '성장 트리의 시작점' },
     // 힘
-    { id: 't_kb1',  branch: 'power', depth: 1, lane: 0,  req: 'root',  cost: 2,  icon: '👊', name: '단련 I',     type: 'stat', stats: { knock: 1.05 }, desc: '공격 넉백 x1.05' },
+    { id: 't_kb1',  branch: 'power', depth: 1, lane: 0,  req: 'root',  cost: 1,  icon: '👊', name: '단련 I',     type: 'stat', stats: { knock: 1.05 }, desc: '공격 넉백 x1.05' },
     { id: 't_dmg1', branch: 'power', depth: 2, lane: -1, req: 't_kb1', cost: 4,  icon: '💢', name: '거친 주먹',   type: 'stat', stats: { dmg: 1.08 }, desc: '주는 피해% x1.08' },
     { id: 't_kb2',  branch: 'power', depth: 2, lane: 1,  req: 't_kb1', cost: 5,  icon: '👊', name: '단련 II',    type: 'stat', stats: { knock: 1.06 }, desc: '공격 넉백 x1.06' },
     { id: 't_fin',  branch: 'power', depth: 3, lane: 0,  req: 't_kb2', cost: 8,  icon: '💥', name: '필살 강타',   type: 'stat', stats: { fin: 1.12 }, desc: '3타째 넉백 x1.12' },
     { id: 't_rng',  branch: 'power', depth: 3, lane: -1.4, req: 't_dmg1', cost: 7, icon: '🦍', name: '긴 팔뚝',   type: 'stat', stats: { range: 1.06 }, desc: '공격 사거리 x1.06' },
     { id: 't_kb3',  branch: 'power', depth: 4, lane: 0,  req: 't_fin', cost: 14, icon: '🔱', name: '단련 III',   type: 'stat', stats: { knock: 1.1 }, desc: '공격 넉백 x1.1' },
     // 맷집
-    { id: 't_tg1',  branch: 'body', depth: 1, lane: 0,  req: 'root',  cost: 2,  icon: '🛡️', name: '굳은살 I',    type: 'stat', stats: { taken: 0.95 }, desc: '받는 피해% x0.95' },
+    { id: 't_tg1',  branch: 'body', depth: 1, lane: 0,  req: 'root',  cost: 1,  icon: '🛡️', name: '굳은살 I',    type: 'stat', stats: { taken: 0.95 }, desc: '받는 피해% x0.95' },
     { id: 't_heal', branch: 'body', depth: 2, lane: -1, req: 't_tg1', cost: 4,  icon: '🍙', name: '도시락',      type: 'stat', stats: { heal: 3 }, desc: '웨이브 클리어 때 피해% 3 회복' },
     { id: 't_kbt',  branch: 'body', depth: 2, lane: 1,  req: 't_tg1', cost: 5,  icon: '🦶', name: '버티는 발',   type: 'stat', stats: { kbTaken: 0.94 }, desc: '받는 넉백 x0.94' },
     { id: 't_spd',  branch: 'body', depth: 3, lane: -1.4, req: 't_heal', cost: 6, icon: '👟', name: '가벼운 몸', type: 'stat', stats: { speed: 1.05 }, desc: '이동 속도 x1.05' },
     { id: 't_tg2',  branch: 'body', depth: 3, lane: 0.6, req: 't_kbt', cost: 9,  icon: '🧱', name: '굳은살 II',   type: 'stat', stats: { taken: 0.92 }, desc: '받는 피해% x0.92' },
     { id: 't_save', branch: 'body', depth: 4, lane: 0,  req: 't_tg2', cost: 18, icon: '🪽', name: '수호 낙법',   type: 'saves', value: 1, desc: '판마다 낙법 1회를 가지고 시작 (떨어져도 한 번 돌아온다)' },
     // 재물
-    { id: 't_gold1', branch: 'money', depth: 1, lane: 0,  req: 'root',    cost: 2,  icon: '🪙', name: '알뜰살뜰',   type: 'stat', stats: { gold: 1.15 }, desc: '골드 획득 x1.15' },
+    { id: 't_gold1', branch: 'money', depth: 1, lane: 0,  req: 'root',    cost: 1,  icon: '🪙', name: '알뜰살뜰',   type: 'stat', stats: { gold: 1.15 }, desc: '골드 획득 x1.15' },
     { id: 't_sgold', branch: 'money', depth: 2, lane: -1, req: 't_gold1', cost: 3,  icon: '💵', name: '비상금',     type: 'startGold', value: 40, desc: '시작 골드 +40' },
     { id: 't_shop',  branch: 'money', depth: 2, lane: 1,  req: 't_gold1', cost: 5,  icon: '🏪', name: '단골 손님',   type: 'shop', value: 1, desc: '장비상인 진열 +1칸' },
     { id: 't_disc',  branch: 'money', depth: 3, lane: 1,  req: 't_shop',  cost: 8,  icon: '🏷️', name: '흥정의 달인', type: 'discount', value: 0.85, desc: '장비 가격 x0.85' },
@@ -565,7 +565,7 @@ window.GAME_DATA = {
     { id: 'c_chef',     branch: 'chars', depth: 3, lane: 1.9,  req: 'c_general', cost: 9,  icon: '🍳', name: '불꽃 요리사', type: 'char', char: 'chef' },
     { id: 'c_archer',   branch: 'chars', depth: 4, lane: 2.1,  req: 'c_chef',    cost: 16, icon: '🏹', name: '궁수',      type: 'char', char: 'archer' },
     // 해금: 필드 아이템과 능력 묶음
-    { id: 'i_gem',    branch: 'unlock', depth: 1, lane: 0,    req: 'root',    cost: 2,  icon: '💎', name: '보석 아이템',  type: 'item', items: ['gem'], desc: '필드 아이템 [보석]이 떨어진다' },
+    { id: 'i_gem',    branch: 'unlock', depth: 1, lane: 0,    req: 'root',    cost: 1,  icon: '💎', name: '보석 아이템',  type: 'item', items: ['gem'], desc: '필드 아이템 [보석]이 떨어진다' },
     { id: 'i_ice',    branch: 'unlock', depth: 2, lane: -1.2, req: 'i_gem',   cost: 4,  icon: '🧊', name: '얼음 결정 아이템', type: 'item', items: ['ice'], desc: '필드 아이템 [얼음 결정]이 떨어진다' },
     { id: 'i_star',   branch: 'unlock', depth: 3, lane: -1.6, req: 'i_ice',   cost: 9,  icon: '⭐', name: '무적 별 아이템', type: 'item', items: ['star'], desc: '필드 아이템 [무적 별]이 떨어진다' },
     { id: 's_dash',   branch: 'unlock', depth: 2, lane: 0.4,  req: 'i_gem',   cost: 4,  icon: '🏃', name: '대시 기술서',  type: 'skill', skills: ['dash_cool', 'dash_far', 'dash_ghost', 'dash_ram', 'dash_quake'] },
