@@ -450,16 +450,26 @@ window.GAME_DATA = {
   // 로비에서 스테이지를 골라 시작한다. 마지막 웨이브까지 클리어하면 다음 스테이지가 열리고, 3스테이지를 클리어하면 무한 스테이지가 열린다.
   // mul = 적 강화 배율(몸무게와 공격력. 스테이지마다 2배). bosses = 5웨이브마다 나오는 고정 보스(순서대로 5, 10, 15... 웨이브)
   // 웨이브 구성: 1~30웨이브는 아래 waves 표, 31웨이브부터는 gen 규칙으로 정해진다(스테이지와 웨이브 번호로 항상 같은 구성)
+  // theme = 배경과 기둥 색(game.js의 drawBackground, drawPillar). sky: 하늘 위/가운데/아래, far: 먼 기둥(언덕) 색, mote: 떠다니는 알갱이 색,
+  //   moteDown: true면 알갱이가 아래로 떨어진다(눈), top: 기둥 윗면 [가운데, 가장자리], side: 옆면 [어두움, 밝음, 가장 밝음, 중간, 어두움], rim: 테두리, fog: 아래쪽 안개 RGB, deco: 윗면 장식
   stages: [
-    { id: 1, name: '1스테이지', sub: '축제 기둥', waves: 30, mul: 1, color: '#7dff9a',
+    { id: 1, name: '1스테이지', sub: '모래밭', waves: 30, mul: 1, color: '#ffd27a',
+      theme: { sky: ['#b8643a', '#e3a066', '#6e3f26'], far: '255,214,150', mote: '255,236,190', top: ['#f2d69a', '#d4a865'],
+        side: ['#5a3a22', '#b8834e', '#c99560', '#8f6038', '#4a2e1a'], rim: '#fbe7b8', fog: '58,32,18', deco: 'sand' },
       bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_reaper'] },
-    { id: 2, name: '2스테이지', sub: '폭풍 기둥', waves: 50, mul: 2, color: '#8fd3ff',
+    { id: 2, name: '2스테이지', sub: '초원 꼭대기', waves: 50, mul: 2, color: '#9be36a',
+      theme: { sky: ['#2f78b8', '#79c0ea', '#2b5a86'], far: '200,240,255', mote: '255,255,255', top: ['#8fd16a', '#4f9a3a'],
+        side: ['#3b2a1a', '#7a5a3a', '#8c6a44', '#5e4329', '#2e2014'], rim: '#c8f59a', fog: '20,40,30', deco: 'grass' },
       bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper'] },
-    { id: 3, name: '3스테이지', sub: '심연 기둥', waves: 100, mul: 4, color: '#ff9bea',
+    { id: 3, name: '3스테이지', sub: '얼음탑', waves: 100, mul: 4, color: '#a8e8ff',
+      theme: { sky: ['#14284a', '#3f74a8', '#0e1d36'], far: '190,230,255', mote: '235,248,255', moteDown: true, top: ['#eaf8ff', '#a9d6f0'],
+        side: ['#1e3d5c', '#5d8fb8', '#7fb0d6', '#41709a', '#18324d'], rim: '#ffffff', fog: '10,24,44', deco: 'ice' },
       bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper',
         'boss_volcano', 'boss_void', 'boss_titan', 'boss_blade', 'boss_inferno', 'boss_ogre', 'boss_reaper', 'boss_volcano', 'boss_void', 'boss_doom'] },
     // 무한: 끝이 없다. 웨이브 구성은 endless 규칙(정예, 맷집 증가)을 따르고, 보스는 bosses를 순서대로 반복한다
-    { id: 4, name: '무한 스테이지', sub: '끝없는 기둥', waves: 0, mul: 8, color: '#ffd84a', endless: true,
+    { id: 4, name: '무한 스테이지', sub: '끝없는 밤하늘', waves: 0, mul: 8, color: '#c9a8ff', endless: true,
+      theme: { sky: ['#1b1d36', '#2d2347', '#120f1f'], far: '150,140,210', mote: '255,255,255', top: ['#9aa0c0', '#646a8e'],
+        side: ['#22253a', '#545a7c', '#5f6688', '#3c4160', '#1d2032'], rim: '#b4b9d6', fog: '18,15,31', deco: null },
       bosses: ['boss_king', 'boss_witch', 'boss_rhino', 'boss_quake', 'boss_storm', 'boss_inferno', 'boss_ogre', 'boss_titan', 'boss_blade', 'boss_reaper', 'boss_volcano', 'boss_void', 'boss_doom'] },
   ],
   // 31웨이브부터의 구성: count = min(max, base + floor((웨이브 - 31) / every)) 마리를 endless.pool 가중치로 뽑는다. 보스 웨이브는 보스 + bossAdds 마리

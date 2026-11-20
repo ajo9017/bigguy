@@ -232,6 +232,8 @@
     chainN: 0, chainT: 0, banner: null, bossT: -1, picking: false, rerolls: 1, choices: [], fireworks: [],
     stage: D.stages[0], gold: 0, shopping: false, offers: [],
   };
+  // 마지막으로 고른 스테이지(열려 있을 때만)로 로비를 시작한다
+  { const sv = D.stages.find(s => s.id === storage.get('bigguy.stage', 1)); if (sv && stageOpen(sv)) game.stage = sv; }
   const fx = { shake: 0, red: 0, zoom: 0, hitstop: 0, slow: 0 };
   let player, enemies = [], particles = [], items = [], shots = [], eshots = [], zones = [], webs = [], meteors = [];
   let chatOpen = false;
@@ -269,7 +271,7 @@
     if (game.picking && /^Digit[1-3]$/.test(e.code)) choose(+e.code.slice(5) - 1);
     if (game.picking && e.code === 'KeyR') reroll();
     const lobbyFree = [ui.records, ui.chars, ui.stages, ui.tree, ui.codex].every(el => el.classList.contains('hidden'));
-    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && lobbyFree) { if (game.state === 'over') startGame(game.stage.id); else openStages(); }
+    if (e.code === 'Enter' && game.state !== 'play' && !chatOpen && lobbyFree) startGame(game.stage.id);
   });
   addEventListener('keyup', e => keys.delete(e.code));
   addEventListener('blur', releaseInput);
@@ -302,9 +304,10 @@
   btnDash.addEventListener('pointerdown', e => { e.preventDefault(); pressDash(); btnDash.classList.add('on'); });
   for (const t of ['pointerup', 'pointercancel', 'pointerleave']) btnDash.addEventListener(t, () => btnDash.classList.remove('on'));
 
-  $('btnStart').addEventListener('click', () => { Sfx.unlock(); openStages(); });
+  $('btnStart').addEventListener('click', () => { Sfx.unlock(); startGame(game.stage.id); });
   $('btnRetry').addEventListener('click', () => { Sfx.unlock(); startGame(game.stage.id); });
-  $('btnLobby').addEventListener('click', () => { ui.over.classList.add('hidden'); ui.title.classList.remove('hidden'); game.state = 'title'; updateLobby(); });
+  // 로비로: 끝난 판의 적을 치우고 기둥 위에 캐릭터만 세워 둔다
+  $('btnLobby').addEventListener('click', () => { ui.over.classList.add('hidden'); resetGame(); game.state = 'title'; ui.title.classList.remove('hidden'); updateLobby(); });
   for (const id of ['btnRec', 'btnRec2']) $(id).addEventListener('click', () => openRecords('rank'));
   for (const tab of document.querySelectorAll('#records .tab[data-tab]')) tab.addEventListener('click', () => openRecords(tab.dataset.tab));
   for (const b of document.querySelectorAll('#rankTabs .sub')) b.addEventListener('click', () => { rankPeriod = b.dataset.period; loadRanking(); });
@@ -870,9 +873,28 @@
   updateCharUi();
 
   // ---------- 로비: 다이아 표시, 스테이지 선택, 성장 트리, 장비 도감 ----------
+  // 로비 가운데의 스테이지 표시: ◀ ▶로 열린 스테이지를 고르고, 이름을 누르면 스테이지 목록이 열린다. 배경(테마)도 함께 바뀐다
+  const openStageList = () => D.stages.filter(stageOpen);
   function updateLobby() {
     ui.titleDia.textContent = `💎 ${meta.dia}`;
+    const S = game.stage, list = openStageList(), i = list.indexOf(S);
+    $('stNowName').textContent = S.endless ? `∞. ${S.sub}` : `${S.id}. ${S.sub}`;
+    $('stNowSub').textContent = `${S.name} · ${S.endless ? '끝없는 웨이브' : `${S.waves}웨이브`}` + (meta.cleared.includes(S.id) ? ' · ✅ 클리어' : meta.best[S.id] ? ` · 최고 ${meta.best[S.id]}웨이브` : '');
+    $('stNow').style.setProperty('--c', S.color);
+    $('stPrev').disabled = i <= 0;
+    $('stNext').disabled = i < 0 || i >= list.length - 1;
   }
+  function pickStage(d) {
+    const list = openStageList(), i = list.indexOf(game.stage);
+    const S = list[clamp(i + d, 0, list.length - 1)];
+    if (!S || S === game.stage) return;
+    game.stage = S; storage.set('bigguy.stage', S.id);
+    Sfx.unlock(); Sfx.play('pick');
+    updateLobby();
+  }
+  $('stPrev').addEventListener('click', () => pickStage(-1));
+  $('stNext').addEventListener('click', () => pickStage(1));
+  $('stNow').addEventListener('click', () => { Sfx.unlock(); openStages(); });
   const lobbyPanels = () => [ui.stages, ui.tree, ui.codex, ui.chars, ui.records];
   function showPanel(el) {
     for (const p of lobbyPanels()) p.classList.add('hidden');
@@ -1001,7 +1023,7 @@
   function startGame(stageId) {
     const S = STAGE[stageId] || D.stages[0];
     if (!stageOpen(S)) return;
-    game.stage = S;
+    game.stage = S; storage.set('bigguy.stage', S.id);
     closeSkillInfo();
     saveName();
     resetGame();
@@ -2375,19 +2397,57 @@
   const motes = Array.from({ length: 40 }, () => ({ x: Math.random(), y: Math.random(), s: rand(0.6, 2), v: rand(0.005, 0.025) }));
   let time = 0;
 
+  // 스테이지 테마 (data.js의 stages[].theme). 로비에서는 고른 스테이지, 게임 중에는 플레이 중인 스테이지
+  const theme = () => (game.stage && game.stage.theme) || D.stages[D.stages.length - 1].theme;
+  // 기둥 윗면 장식 위치 (한 번만 정해서 매 프레임 같은 자리에 그린다). r = 반지름 비율, a = 각도
+  const decoPts = Array.from({ length: 26 }, () => ({ r: Math.sqrt(Math.random()) * 0.82, a: rand(0, Math.PI * 2), k: Math.random() }));
   function drawBackground() {
+    const T = theme();
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#1b1d36'); g.addColorStop(0.6, '#2d2347'); g.addColorStop(1, '#120f1f');
+    g.addColorStop(0, T.sky[0]); g.addColorStop(0.6, T.sky[1]); g.addColorStop(1, T.sky[2]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     for (const p of farPillars) {
       const x = p.x * W, w = p.w * W, top = p.top * H;
-      ctx.fillStyle = `rgba(150,140,210,${p.alpha})`;
-      ctx.fillRect(x - w / 2, top, w, H - top);
-      ctx.beginPath(); ctx.ellipse(x, top, w / 2, w * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(${T.far},${p.alpha})`;
+      if (T.deco === 'sand') {
+        // 모래 언덕
+        ctx.beginPath(); ctx.ellipse(x, top + H * 0.12, w * 3.2, H * 0.12, 0, Math.PI, 0); ctx.fill();
+        ctx.fillRect(x - w * 3.2, top + H * 0.12, w * 6.4, H);
+      } else if (T.deco === 'grass') {
+        // 뭉게구름
+        for (const [dx, dy, rr] of [[-1, 0, 1], [0, -0.5, 1.3], [1.1, 0, 1]]) { ctx.beginPath(); ctx.arc(x + dx * w * 1.4, top * 0.55 + dy * w, w * rr * 1.2, 0, Math.PI * 2); ctx.fill(); }
+      } else if (T.deco === 'ice') {
+        // 뾰족한 얼음 봉우리
+        ctx.beginPath(); ctx.moveTo(x - w * 1.2, H); ctx.lineTo(x, top - w * 2); ctx.lineTo(x + w * 1.2, H); ctx.closePath(); ctx.fill();
+      } else {
+        ctx.fillRect(x - w / 2, top, w, H - top);
+        ctx.beginPath(); ctx.ellipse(x, top, w / 2, w * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      }
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillStyle = `rgba(${T.mote},${T.moteDown ? 0.7 : 0.18})`;
     for (const m of motes) {
-      ctx.beginPath(); ctx.arc(m.x * W, m.y * H, m.s, 0, Math.PI * 2); ctx.fill();
+      const y = T.moteDown ? (1 - m.y) * H : m.y * H;
+      ctx.beginPath(); ctx.arc(m.x * W, y, m.s * (T.moteDown ? 1.4 : 1), 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // 기둥 윗면 장식: 모래 물결과 돌, 풀과 꽃, 얼음 금과 반짝임
+  function drawDeco(T, rx, ry) {
+    if (!T.deco) return;
+    for (const d of decoPts) {
+      const x = CX + Math.cos(d.a) * d.r * rx, y = CY + Math.sin(d.a) * d.r * ry, u = Math.max(2, S * 4);
+      if (T.deco === 'sand') {
+        if (d.k < 0.7) { ctx.strokeStyle = 'rgba(150,100,50,0.35)'; ctx.lineWidth = Math.max(1.5, S * 2); ctx.beginPath(); ctx.ellipse(x, y, u * 4, u * 1.2, 0, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+        else { ctx.fillStyle = '#a07a4e'; ctx.beginPath(); ctx.ellipse(x, y, u * 1.6, u, 0, 0, Math.PI * 2); ctx.fill(); }
+      } else if (T.deco === 'grass') {
+        if (d.k < 0.75) {
+          ctx.strokeStyle = '#3e8a2e'; ctx.lineWidth = Math.max(1.5, S * 2);
+          for (const o of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(x + o * u, y); ctx.lineTo(x + o * u * 1.8, y - u * 3); ctx.stroke(); }
+        } else { ctx.fillStyle = d.k < 0.88 ? '#fff27a' : '#ff9bd0'; ctx.beginPath(); ctx.arc(x, y - u, u * 1.1, 0, Math.PI * 2); ctx.fill(); }
+      } else if (T.deco === 'ice') {
+        if (d.k < 0.6) { ctx.strokeStyle = 'rgba(120,170,210,0.55)'; ctx.lineWidth = Math.max(1, S * 1.5); ctx.beginPath(); ctx.moveTo(x - u * 3, y - u); ctx.lineTo(x, y + u * 0.5); ctx.lineTo(x + u * 2.5, y - u * 0.4); ctx.stroke(); }
+        else { const tw = 0.5 + 0.5 * Math.sin(time * 3 + d.a * 7); ctx.fillStyle = `rgba(255,255,255,${0.4 + 0.6 * tw})`; ctx.fillRect(x - u * 0.4, y - u * 1.6, u * 0.8, u * 3.2); ctx.fillRect(x - u * 1.6, y - u * 0.4, u * 3.2, u * 0.8); }
+      }
     }
   }
 
@@ -2395,8 +2455,9 @@
     const rx = R * S, ry = R * SQ * S;
     // 옆면
     const g = ctx.createLinearGradient(CX - rx, 0, CX + rx, 0);
-    g.addColorStop(0, '#22253a'); g.addColorStop(0.35, '#545a7c'); g.addColorStop(0.55, '#5f6688');
-    g.addColorStop(0.8, '#3c4160'); g.addColorStop(1, '#1d2032');
+    const T = theme(), sd = T.side;
+    g.addColorStop(0, sd[0]); g.addColorStop(0.35, sd[1]); g.addColorStop(0.55, sd[2]);
+    g.addColorStop(0.8, sd[3]); g.addColorStop(1, sd[4]);
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.moveTo(CX + rx, CY);
@@ -2414,13 +2475,14 @@
     }
     // 아래로 갈수록 어둠
     const fog = ctx.createLinearGradient(0, CY + ry, 0, H);
-    fog.addColorStop(0, 'rgba(18,15,31,0)'); fog.addColorStop(1, 'rgba(18,15,31,0.92)');
+    fog.addColorStop(0, `rgba(${T.fog},0)`); fog.addColorStop(1, `rgba(${T.fog},0.92)`);
     ctx.fillStyle = fog; ctx.fillRect(CX - rx - 2, CY, rx * 2 + 4, H - CY);
     // 윗면
     const tg = ctx.createRadialGradient(CX, CY - ry * 0.3, rx * 0.1, CX, CY, rx);
-    tg.addColorStop(0, '#9aa0c0'); tg.addColorStop(1, '#646a8e');
+    tg.addColorStop(0, T.top[0]); tg.addColorStop(1, T.top[1]);
     ctx.fillStyle = tg;
     ctx.beginPath(); ctx.ellipse(CX, CY, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    drawDeco(T, rx, ry);
     ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 2;
     for (const f of [0.33, 0.66]) { ctx.beginPath(); ctx.ellipse(CX, CY, rx * f, ry * f, 0, 0, Math.PI * 2); ctx.stroke(); }
     // 가장자리 위험선
@@ -2428,7 +2490,7 @@
     ctx.strokeStyle = 'rgba(255,90,90,0.25)'; ctx.lineWidth = 3 * S;
     ctx.beginPath(); ctx.ellipse(CX, CY, rx * 0.9, ry * 0.9, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.strokeStyle = '#b4b9d6'; ctx.lineWidth = 3;
+    ctx.strokeStyle = T.rim; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(CX, CY, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
   }
 
@@ -3170,7 +3232,7 @@
       ctx.beginPath(); ctx.ellipse(px, sy(e.y, 0), rr, rr * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
-    if (e.kind === 'player' && !e.falling) drawGauge(e, px, py, r);
+    if (e.kind === 'player' && !e.falling && game.state !== 'title') drawGauge(e, px, py, r);
 
     if (e.kind === 'enemy' && !e.falling && e.state !== 'spawn') {
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -3386,6 +3448,8 @@
     ctx.translate(fpx + shx, fpy + shy);
     ctx.scale(zoom, zoom);
     ctx.translate(-fpx, -fpy);
+    // 로비: 기둥을 작게 그려서 배경(하늘, 언덕)과 함께 떠 있는 섬처럼 보이게 한다
+    if (game.state === 'title') { const z = 0.66; ctx.translate(CX, CY + H * 0.02); ctx.scale(z, z); ctx.translate(-CX, -CY); }
 
     const all = [player, ...enemies];
     const back = [], front = [];

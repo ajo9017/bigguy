@@ -155,8 +155,31 @@
   .charBtn:disabled { background: rgba(255, 255, 255, .15); color: #ccc; cursor: default; }
   .rankLine { font-size: 18px; font-weight: 800; color: #8fd3ff; margin-top: 6px; }
 
+  /* 로비 화면: 가운데를 비워 캔버스의 기둥(스테이지 배경)과 캐릭터가 보이게 한다 */
+  .titleScreen { justify-content: space-between; gap: 8px; background: linear-gradient(to bottom, rgba(8, 8, 16, .55), rgba(8, 8, 16, 0) 26%, rgba(8, 8, 16, 0) 58%, rgba(8, 8, 16, .75));
+    padding-top: max(14px, env(safe-area-inset-top)); padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .tTop, .tBottom { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(380px, 100%); }
+  .tLogo { font-size: clamp(38px, 9vw, 64px); margin-top: 26px; }
+  .tInfo { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .tInfo #nameInput { width: 140px; padding: 7px 10px; font-size: 15px; }
+  .titleDia { font-size: 18px; font-weight: 900; color: #8fe8ff; background: rgba(8, 8, 16, .55); padding: 5px 12px; border-radius: 14px; }
+  .stageBar { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .stArrow { width: 44px; height: 56px; flex: none; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .3); background: rgba(8, 8, 16, .55); color: #fff; font-size: 18px; cursor: pointer; }
+  .stArrow:disabled { opacity: .25; cursor: default; }
+  .stNow { flex: 1; min-width: 0; height: 56px; border-radius: 14px; border: 3px solid var(--c, #ffd84a); background: rgba(8, 8, 16, .6); color: #fff; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: center; font-family: inherit; }
+  .stNow b { font-size: 20px; font-weight: 900; color: var(--c, #ffd84a); text-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+  .stNow span { font-size: 12px; opacity: .85; }
+  .tStart { width: 100%; font-size: 28px; padding: 16px 0; border-radius: 18px; }
+  .tGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+  .tile { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 8px; border-radius: 14px; cursor: pointer; font-family: inherit;
+    font-size: 17px; font-weight: 800; color: #fff; background: linear-gradient(#3a3f78, #262a55); border: 2px solid rgba(255, 255, 255, .28); box-shadow: 0 4px 0 #15172f; }
+  .tile i { font-style: normal; font-size: 22px; }
+  .tile:active { transform: translateY(3px); box-shadow: 0 1px 0 #15172f; }
+  .tBottom .help { font-size: 12px; text-shadow: 0 1px 2px #000; }
+  @media (max-height: 640px) { .tLogo { margin-top: 4px; font-size: 34px; } .tBottom .help { display: none; } .tile { padding: 10px 6px; } .tStart { padding: 11px 0; } }
+
   /* 로비: 다이아, 스테이지 선택, 성장 트리, 장비 도감 */
-  .titleDia { font-size: 20px; font-weight: 900; color: #8fe8ff; }
   #overTitle.clear { color: #7dff9a; font-size: clamp(34px, 8vw, 64px); }
   .lobbyPanel { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); background: rgba(8, 8, 16, .88); }
   .panelBox { width: min(560px, 100%); background: #1d1f38; border-radius: 18px; padding: 16px; box-sizing: border-box; border: 2px solid #3d4175; text-align: left;
@@ -217,23 +240,32 @@
   <button class="tbtn" id="btnAtk">공격</button>
 </div>
 
-<div id="title" class="overlay">
-  <h1>BIG GUY</h1>
-  <div class="sub">기둥 위에서 버텨라. 떨어지면 끝!</div>
-  <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space · 대시 L / Shift<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
-  <div class="nameRow">
-    <label for="nameInput">이름</label>
-    <input id="nameInput" maxlength="12" placeholder="랭킹에 표시될 이름" autocomplete="off" enterkeyhint="go">
+<!-- 로비: 위(로고, 이름, 스테이지) · 가운데는 비워서 캔버스의 기둥과 캐릭터가 보이게 · 아래(시작 버튼, 2x2 메뉴) -->
+<div id="title" class="overlay titleScreen">
+  <div class="tTop">
+    <h1 class="tLogo">BIG GUY</h1>
+    <div class="tInfo">
+      <div class="nameRow">
+        <label for="nameInput">이름</label>
+        <input id="nameInput" maxlength="12" placeholder="랭킹에 표시될 이름" autocomplete="off" enterkeyhint="go">
+      </div>
+      <div class="titleDia" id="titleDia"></div>
+    </div>
+    <div class="stageBar">
+      <button class="stArrow" id="stPrev" aria-label="이전 스테이지">◀</button>
+      <button class="stNow" id="stNow"><b id="stNowName"></b><span id="stNowSub"></span></button>
+      <button class="stArrow" id="stNext" aria-label="다음 스테이지">▶</button>
+    </div>
   </div>
-  <div class="titleDia" id="titleDia"></div>
-  <div class="row">
-    <button class="big" id="btnStart">시작</button>
-    <button class="ghost" id="btnRec">🏆 랭킹</button>
-    <button class="ghost" id="btnChars">👤 캐릭터</button>
-  </div>
-  <div class="row">
-    <button class="ghost" id="btnTree">🌳 성장 트리</button>
-    <button class="ghost" id="btnCodex">📖 장비 도감</button>
+  <div class="tBottom">
+    <button class="big tStart" id="btnStart">▶ 시작</button>
+    <div class="tGrid">
+      <button class="tile" id="btnRec"><i>🏆</i>랭킹</button>
+      <button class="tile" id="btnChars"><i>👤</i>캐릭터</button>
+      <button class="tile" id="btnTree"><i>🌳</i>성장 트리</button>
+      <button class="tile" id="btnCodex"><i>📖</i>장비 도감</button>
+    </div>
+    <div class="help" id="help">이동 WASD / 방향키 · 공격 J / Space · 대시 L / Shift<br>3번 연속 치면 강타! 맞을수록 피해%가 오르고 더 멀리 날아갑니다</div>
   </div>
 </div>
 
@@ -351,7 +383,7 @@
 </div>
 
 <!-- ?v= 는 배포할 때 바꿔서 브라우저가 예전 data.js/game.js를 캐시에서 쓰지 않게 한다 (둘이 어긋나면 게임이 멈춘다) -->
-<script src="data.js?v=20261121b"></script>
-<script src="game.js?v=20261121b"></script>
+<script src="data.js?v=20261121d"></script>
+<script src="game.js?v=20261121d"></script>
 </body>
 </html>
