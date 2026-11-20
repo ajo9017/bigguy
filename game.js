@@ -51,11 +51,13 @@
   // ART_UNIT: 그림 1픽셀 = 게임 단위 몇. 키우면 모두 같이 커진다
   // baseR: data.js의 기본 반지름. 거대화·정예처럼 r이 커지면 그 비율만큼 같이 커진다
   const ART_UNIT = 1.9;
+  // 그림 파일을 고치면 이 값을 바꾼다 (브라우저 캐시에 남은 예전 그림을 쓰지 않게)
+  const SPRITE_V = 2;
   const SPRITES = {};
   function loadSprite(key, fw, fh, baseR) {
     const s = SPRITES[key] = { img: new Image(), fw, fh, baseR, ok: false, tints: {} };
     s.img.onload = () => { s.ok = true; };
-    s.img.src = `art/sprites/${key}.png`;
+    s.img.src = `art/sprites/${key}.png?v=${SPRITE_V}`;
   }
   // 빅가이 프레임: 0 서기, 1 걷기(발 벌림), 2 걷기(발 모음), 3 펀치 준비, 4 펀치 뻗기, 5 맞음/낙하
   loadSprite('bigguy', 48, 48, D.player.radius);
