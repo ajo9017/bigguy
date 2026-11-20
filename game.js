@@ -38,6 +38,60 @@
   window.addEventListener('resize', () => { if (!chatOpen) resize(); });
   resize();
 
+  // ---------- 도트 스프라이트 (art/STYLE.md 규칙, 파일은 art/sprites) ----------
+  // 프레임은 가로 한 줄, 기본은 오른쪽을 본다(왼쪽은 좌우 반전). 확대는 정수 배율 + nearest neighbor만 쓴다.
+  // 그림이 아직 안 불러와졌거나 없는 캐릭터·적은 기존 도형 그리기를 그대로 쓴다
+  // 모든 스프라이트가 같은 점 크기를 쓴다(STYLE.md: 점 크기가 섞이면 안 됨). 캐릭터끼리 크기 차이는 그림 픽셀 수로만 난다.
+  // ART_UNIT: 그림 1픽셀 = 게임 단위 몇. 키우면 모두 같이 커진다
+  // baseR: data.js의 기본 반지름. 거대화·정예처럼 r이 커지면 그 비율만큼 같이 커진다
+  const ART_UNIT = 1.9;
+  const SPRITES = {};
+  function loadSprite(key, fw, fh, baseR) {
+    const s = SPRITES[key] = { img: new Image(), fw, fh, baseR, ok: false, tints: {} };
+    s.img.onload = () => { s.ok = true; };
+    s.img.src = `art/sprites/${key}.png`;
+  }
+  // 빅가이 프레임: 0 서기, 1 걷기(발 벌림), 2 걷기(발 모음), 3 펀치 준비, 4 펀치 뻗기, 5 맞음/낙하
+  loadSprite('bigguy', 48, 48, D.player.radius);
+  for (const k of ['grunt', 'charger', 'brute']) loadSprite(k, k === 'brute' ? 48 : 32, k === 'brute' ? 48 : 32, D.enemies[k].radius);
+
+  // 피격 반짝임 등에 쓰는 단색 실루엣 (색마다 한 번만 만든다)
+  function spriteTint(s, color) {
+    let c = s.tints[color];
+    if (!c) {
+      c = document.createElement('canvas'); c.width = s.img.width; c.height = s.img.height;
+      const g = c.getContext('2d');
+      g.drawImage(s.img, 0, 0);
+      g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+      s.tints[color] = c;
+    }
+    return c;
+  }
+
+  // 원점 = 몸 중심, 발끝 = +r 에 맞춰 그린다. over: 위에 덮을 단색(없으면 null)
+  // 배율은 r과 화면 DPR로만 정한다. 기울기·찌그러짐(ctx 변환)을 배율 계산에 넣으면 연출 중에 2배↔3배로 튀어서 크기가 갑자기 바뀐다
+  function drawSprite(s, frame, r, flip, over, overA) {
+    const k = Math.max(1, Math.round(ART_UNIT * (r / s.baseR) * DPR)) / DPR;
+    const w = s.fw * k, h = s.fh * k, x = -w / 2, y = r - h;
+    ctx.save();
+    if (flip) ctx.scale(-1, 1);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(s.img, frame * s.fw, 0, s.fw, s.fh, x, y, w, h);
+    if (over) {
+      ctx.globalAlpha *= overA;
+      ctx.drawImage(spriteTint(s, over), frame * s.fw, 0, s.fw, s.fh, x, y, w, h);
+    }
+    ctx.restore();
+  }
+
+  function bigguyFrame(e) {
+    if (e.falling || e.hurt > 0) return 5;
+    const a = e.atk;
+    if (a && a.def) { const u = a.t / a.def.duration; return u < 0.2 || u > 0.85 ? 3 : 4; }
+    if (e.sprMoving) return Math.floor(e.walk / (Math.PI / 2)) % 2 ? 2 : 1;
+    return 0;
+  }
+
   const sx = x => CX + x * S;
   const sy = (y, z) => CY + (y * SQ - z) * S;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -2344,6 +2398,12 @@
       ctx.beginPath(); ctx.ellipse(0, -r * 0.2, r * 1.4, r * 1.8, 0, 0, Math.PI * 2); ctx.fill();
     }
 
+    const sp = SPRITES.bigguy;
+    if (sp.ok && (!e.ch || e.ch.id === 'bigguy')) {
+      drawSprite(sp, bigguyFrame(e), r, fxv < 0, e.flash > 0 ? tint(e, '') : null, 0.75);
+      return;
+    }
+
     if (L.cape) {
       ctx.fillStyle = tint(e, L.cape); ctx.strokeStyle = line; ctx.lineWidth = lw;
       const wav = Math.sin(time * 6) * r * 0.06;
@@ -2648,6 +2708,12 @@
     const blink = e.state === 'windup' && Math.floor(e.st * 12) % 2 === 0;
     const base = e.frozen > 0 ? '#a8dcff' : blink ? '#ff6b6b' : d.color;
 
+    const sp = SPRITES[e.type];
+    const useSp = sp && sp.ok;
+    if (useSp) {
+      const over = e.flash > 0 ? tint(e, '') : e.frozen > 0 ? '#a8dcff' : blink ? '#ff6b6b' : null;
+      drawSprite(sp, 0, r, fxv < 0, over, e.flash > 0 ? 0.75 : 0.55);
+    } else {
     if (d.horn) {
       ctx.fillStyle = tint(e, '#f5efe0'); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = lw;
       ctx.beginPath(); ctx.moveTo(-r * 0.3, -r * 0.75); ctx.lineTo(fxv * r * 0.2, -r * 1.5); ctx.lineTo(r * 0.3, -r * 0.75); ctx.closePath();
@@ -2723,6 +2789,7 @@
         }
       }
     }
+    } // 도형 그리기 끝 (스프라이트가 없는 적)
 
     if (d.guard && e.state !== 'stun') {
       // 앞을 막는 방패 (뒤를 볼 때는 몸에 가려진다)
@@ -2795,6 +2862,7 @@
     ctx.rotate(e.tilt + e.spin);
     ctx.scale(e.sqx, e.sqy);
     if (e.kind === 'player' && e.ghost > 0) ctx.globalAlpha = 0.4;
+    e.sprMoving = e.walk !== e.sprWalk; e.sprWalk = e.walk; // 걷는 중인지 (스프라이트 프레임 고르기용)
     if (e.kind === 'player') drawPlayer(e, r); else drawEnemy(e, r);
     if (e.kind === 'player' && (e.inv > 0 || e.starT > 0) && !e.falling) {
       // 무적: 캐릭터 전체가 빠르게 반짝이고 별빛이 튄다

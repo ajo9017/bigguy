@@ -1,7 +1,7 @@
 # BIG GUY 아트 스타일: 과장된 개그 도트
 
 결정: 2026-11-07. 근육 아저씨가 적을 기둥 밖으로 날려버리는 순간이 3초짜리 숏폼에서 웃기게 보이는 것을 최우선으로 한다.
-근육은 **개그**로만 쓴다. 노출이나 성적인 연출은 하지 않는다(광고 거절, 스팀 노출 제한으로 마케팅비가 오른다).
+근육은 **개그**로만 쓴다. 맨가슴 노출은 개그 수준이면 괜찮고(2026-11-20 변경, 기준 그림은 해피 코트를 연 맨가슴), 성적인 연출은 하지 않는다(광고 거절, 스팀 노출 제한으로 마케팅비가 오른다).
 
 ## 고정 규격 (모든 그림이 지켜야 함)
 | 항목 | 규칙 |
@@ -30,7 +30,7 @@ idle 2, walk 4, punch 3(준비, 뻗기, 회수), hurt 2, fall 1. 한 줄 스프�
 Pixel art game character sprite in a comedy/gag style.
 A ridiculously muscular middle-aged Japanese festival guy: huge chest and arms, tiny short legs,
 short black hair, white hachimaki headband with a knot, open white happi coat with navy collar trim,
-white shorts, black socks, stubble, smug confident grin, rosy cheeks. Fully clothed, not sexy, just funny.
+white shorts, black socks, stubble, smug confident grin, rosy cheeks. Bare chest under the open coat is fine, but not sexy, just funny.
 Proportions: 2.5 heads tall, the torso is half of the body height.
 Facing right, slightly top-down 3/4 view.
 Exactly 48x48 pixel sprite, shown scaled up with nearest-neighbor: every pixel crisp and the same size,
